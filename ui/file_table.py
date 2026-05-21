@@ -1,0 +1,105 @@
+import flet as ft
+import os
+
+from core.state import AppState
+from utils.logger import logger
+
+class FileTable(ft.Row):
+    """
+    UI Component displaying a selectable data table of audio files.
+    """
+    def __init__(self, app_state: AppState):
+        super().__init__(scroll=ft.ScrollMode.AUTO, expand=True)
+        self.app_state = app_state
+        self.app_state.add_listener(self.update_ui)
+        self.table = ft.DataTable(
+            columns=[
+                ft.DataColumn(ft.Text("File Name")),
+                ft.DataColumn(ft.Text("Artist")),
+                ft.DataColumn(ft.Text("Title")),
+                ft.DataColumn(ft.Text("Album")),
+                ft.DataColumn(ft.Text("Track #")),
+            ],
+            rows=[],
+            show_checkbox_column=True,
+            on_select_all=self.handle_select_all
+        )
+        self.visible = False
+        self.controls = [self.table]
+        
+    def handle_select_all(self, e: ft.ControlEvent):
+        """Handles clicks on the select-all header checkbox."""
+        if str(e.data).lower() == "true":
+            self.app_state.set_selection(range(len(self.app_state.current_files)))
+        else:
+            self.app_state.set_selection([])
+        
+    def make_on_change(self, idx: int):
+        """Creates an event handler for a specific row's checkbox.
+
+        Selection rules:
+          - Shift+click : add all rows between last anchor and this row (range select)
+          - Any other click : pure toggle — check adds, uncheck removes
+        """
+        def on_change(e: ft.ControlEvent):
+            is_checked = str(e.data).lower() == "true"
+
+            if self.app_state.shift_pressed and self.app_state.last_selected_index is not None:
+                # Range-select: add every row between anchor and current row
+                start = min(self.app_state.last_selected_index, idx)
+                end   = max(self.app_state.last_selected_index, idx)
+                for i in range(start, end + 1):
+                    self.app_state.selected_file_indices.add(i)
+                # Keep anchor so repeated shift-clicks extend correctly
+            else:
+                # Pure toggle — honours exactly what the checkbox now shows
+                if is_checked:
+                    self.app_state.selected_file_indices.add(idx)
+                else:
+                    self.app_state.selected_file_indices.discard(idx)
+                self.app_state.last_selected_index = idx
+
+            self.app_state.notify()
+        return on_change
+
+    def update_ui(self):
+        """Synchronizes the DataRow configurations with the global AppState."""
+        self.visible = len(self.app_state.current_files) > 0
+        
+        try:
+            if len(self.table.rows) != len(self.app_state.current_files):
+                logger.debug("Rebuilding file table rows.")
+                self.table.rows.clear()
+                for i, file_data in enumerate(self.app_state.current_files):
+                    name = os.path.basename(file_data['path'])
+                    meta = file_data['metadata']
+                    track = meta.get('tracknumber', '')
+                    title = meta.get('title', '')
+                    artist = meta.get('artist', '')
+                    album = meta.get('album', '')
+                    
+                    row = ft.DataRow(
+                        selected=(i in self.app_state.selected_file_indices),
+                        on_select_change=self.make_on_change(i),
+                        cells=[
+                            ft.DataCell(ft.Text(name)),
+                            ft.DataCell(ft.Text(artist)),
+                            ft.DataCell(ft.Text(title)),
+                            ft.DataCell(ft.Text(album)),
+                            ft.DataCell(ft.Text(track)),
+                        ]
+                    )
+                    self.table.rows.append(row)
+            else:
+                for i, (row, file_data) in enumerate(zip(self.table.rows, self.app_state.current_files)):
+                    meta = file_data['metadata']
+                    row.selected           = (i in self.app_state.selected_file_indices)
+                    row.cells[0].content.value = os.path.basename(file_data['path'])
+                    row.cells[1].content.value = meta.get('artist', '')
+                    row.cells[2].content.value = meta.get('title', '')
+                    row.cells[3].content.value = meta.get('album', '')
+                    row.cells[4].content.value = meta.get('tracknumber', '')
+                    
+            self.update()
+        except Exception as e:
+            logger.error(f"Error updating file table UI: {e}", exc_info=True)
