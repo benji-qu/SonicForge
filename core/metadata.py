@@ -122,3 +122,90 @@ def write_metadata_to_ogg(ogg_path: str, tags: Dict[str, Any], cover_art: Option
     except Exception as e:
         logger.error(f"Failed to save OGG metadata to {ogg_path}: {e}", exc_info=True)
         return False
+
+
+def generate_filename(pattern: str, metadata: dict, original_path: str) -> str:
+    """
+    Generates a standardized filename based on a pattern template and metadata tags.
+    
+    Supported placeholders:
+      - {track}       : Raw track number (e.g., "1", "01/12")
+      - {track:02d}   : Double-digit track number (e.g., "01", "02")
+      - {title}       : Track title
+      - {artist}      : Artist name
+      - {album}       : Album name
+      - {year}        : Release year
+      - {genre}       : Music genre
+    
+    Args:
+        pattern: The naming template (e.g., "{track:02d} - {title}")
+        metadata: Standardized metadata tags dictionary
+        original_path: Original path of the file
+        
+    Returns:
+        The generated filename string including the original file extension.
+    """
+    import os
+    from pathlib import Path
+    
+    original_name = Path(original_path).name
+    ext = Path(original_path).suffix
+    
+    # Extract values with clear, descriptive fallbacks
+    track_val = metadata.get('tracknumber', '').strip()
+    title_val = metadata.get('title', '').strip()
+    artist_val = metadata.get('artist', '').strip()
+    album_val = metadata.get('album', '').strip()
+    year_val = metadata.get('date', metadata.get('year', '')).strip()
+    genre_val = metadata.get('genre', '').strip()
+    
+    # Setup format dictionary
+    fmt_dict = {
+        'title': title_val or "Unknown Title",
+        'artist': artist_val or "Unknown Artist",
+        'album': album_val or "Unknown Album",
+        'year': year_val or "Unknown Year",
+        'genre': genre_val or "Unknown Genre",
+    }
+    
+    # Handle track formatting specially
+    track_num = 0
+    try:
+        # Strip trailing total counts (e.g., "01/12" -> "01")
+        clean_track = track_val.split('/')[0].strip()
+        track_num = int(clean_track)
+    except Exception:
+        pass
+        
+    fmt_dict['track'] = track_val or "00"
+    
+    # Handle the specific double-digit track placeholder manually if possible
+    # to avoid str.format exceptions on arbitrary format descriptors
+    if "{track:02d}" in pattern:
+        if track_num > 0:
+            pattern = pattern.replace("{track:02d}", f"{track_num:02d}")
+        else:
+            pattern = pattern.replace("{track:02d}", track_val or "00")
+            
+    try:
+        new_name = pattern.format(**fmt_dict)
+    except Exception as e:
+        logger.warning(f"Failed standard format for pattern '{pattern}': {e}. Falling back to basic replace.")
+        new_name = pattern
+        for k, v in fmt_dict.items():
+            new_name = new_name.replace(f"{{{k}}}", str(v))
+            
+    # Sanitize name to remove OS-forbidden characters
+    invalid_chars = ['/', '\\', ':', '*', '?', '"', '<', '>', '|']
+    for char in invalid_chars:
+        new_name = new_name.replace(char, '_')
+        
+    # Standardize whitespace (remove duplicate spaces, strip outer spaces)
+    new_name = " ".join(new_name.split())
+    
+    # Ensure correct extension suffix
+    if not new_name.lower().endswith(ext.lower()):
+        new_name += ext
+        
+    return new_name
+

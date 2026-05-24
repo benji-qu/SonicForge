@@ -56,37 +56,39 @@ def card(content: ft.Control, padding: int = 16, **kwargs) -> ft.Container:
 
 
 def styled_field(label: str, **kwargs) -> ft.TextField:
-    """Returns a consistently-styled TextField matching the design system."""
+    """Returns a consistently-styled compact TextField matching the design system."""
     return ft.TextField(
         label=label,
-        label_style=ft.TextStyle(color=MUTED, size=12),
+        label_style=ft.TextStyle(color=MUTED, size=10),
         color=TEXT,
         bgcolor=INPUT_BG,
         border_color=BORDER,
         focused_border_color=SECONDARY,
         cursor_color=SECONDARY,
-        border_radius=8,
-        content_padding=ft.Padding.symmetric(horizontal=14, vertical=12),
+        border_radius=6,
+        height=38,
+        text_size=12,
+        content_padding=ft.Padding.symmetric(horizontal=12, vertical=6),
         **kwargs,
     )
 
 
 def gradient_button(text: str, icon: str, on_click, **kwargs) -> ft.Container:
-    """A full-width gradient CTA button."""
+    """A compact, full-width gradient CTA button."""
     return ft.Container(
         content=ft.Row(
             [
-                ft.Icon(icon, color=ft.Colors.WHITE, size=18),
-                ft.Text(text, color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD, size=15),
+                ft.Icon(icon, color=ft.Colors.WHITE, size=16),
+                ft.Text(text, color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD, size=13),
             ],
             alignment=ft.MainAxisAlignment.CENTER,
-            spacing=10,
+            spacing=8,
         ),
         gradient=GRADIENT_PRIMARY,
-        border_radius=10,
+        border_radius=8,
         on_click=on_click,
         ink=True,
-        padding=ft.Padding.symmetric(vertical=14),
-        height=52,
+        height=40,
         **kwargs,
     )
+

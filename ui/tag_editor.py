@@ -19,12 +19,14 @@ class TagEditor(ft.Column):
         app_state: AppState,
         on_fetch_artwork: Callable[[str, str], None],
         on_select_local_artwork: Callable[[], None],
+        on_rename_files: Callable[[], None],
         on_save_complete: Optional[Callable[[int], None]] = None,
     ):
-        super().__init__(expand=True, scroll=ft.ScrollMode.AUTO, spacing=0)
+        super().__init__(expand=True, spacing=0)
         self.app_state = app_state
         self.on_fetch_artwork = on_fetch_artwork
         self.on_select_local_artwork = on_select_local_artwork
+        self.on_rename_files = on_rename_files
         self.on_save_complete = on_save_complete
 
         # ── Tag fields ─────────────────────────────────────────────────────────
@@ -37,17 +39,17 @@ class TagEditor(ft.Column):
 
         # ── Artwork placeholder ────────────────────────────────────────────────
         self._artwork_placeholder = ft.Container(
-            width=160, height=160,
-            border_radius=12,
+            width=120, height=120,
+            border_radius=8,
             gradient=T.GRADIENT_ARTWORK,
             content=ft.Column(
                 [
-                    ft.Icon(ft.Icons.MUSIC_NOTE, color=ft.Colors.WHITE54, size=44),
-                    ft.Text("Click to change", color=ft.Colors.WHITE38, size=11),
+                    ft.Icon(ft.Icons.MUSIC_NOTE, color=ft.Colors.WHITE54, size=32),
+                    ft.Text("Click to change", color=ft.Colors.WHITE38, size=9),
                 ],
                 alignment=ft.MainAxisAlignment.CENTER,
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                spacing=6,
+                spacing=4,
             ),
         )
 
@@ -55,8 +57,8 @@ class TagEditor(ft.Column):
             width=160, height=160,
             on_click=lambda e: self.on_select_local_artwork(),
             content=self._artwork_placeholder,
-            tooltip="Click to select 500×500 square cover art",
-            border_radius=12,
+            tooltip="Click to select an artwork",
+            border_radius=8,
             ink=True,
         )
 
@@ -69,9 +71,39 @@ class TagEditor(ft.Column):
             ),
             style=ft.ButtonStyle(
                 color=T.PRIMARY,
-                side=ft.BorderSide(1.5, T.PRIMARY),
-                shape=ft.RoundedRectangleBorder(radius=8),
+                side=ft.BorderSide(1.2, T.PRIMARY),
+                shape=ft.RoundedRectangleBorder(radius=6),
+                padding=ft.Padding.symmetric(horizontal=8, vertical=4),
             ),
+            height=34,
+        )
+
+        # ── Auto-number tracks button ──────────────────────────────────────────
+        self.auto_number_btn = ft.OutlinedButton(
+            "Auto-Number Tracks",
+            icon=ft.Icons.FORMAT_LIST_NUMBERED,
+            on_click=self.auto_number_tracks,
+            style=ft.ButtonStyle(
+                color=T.PRIMARY,
+                side=ft.BorderSide(1.2, T.PRIMARY),
+                shape=ft.RoundedRectangleBorder(radius=6),
+                padding=ft.Padding.symmetric(horizontal=6, vertical=4),
+            ),
+            height=34,
+        )
+
+        # ── Rename files button ────────────────────────────────────────────────
+        self.rename_files_btn = ft.OutlinedButton(
+            "Rename Files",
+            icon=ft.Icons.DRIVE_FILE_RENAME_OUTLINE,
+            on_click=lambda e: self.on_rename_files(),
+            style=ft.ButtonStyle(
+                color=T.PRIMARY,
+                side=ft.BorderSide(1.2, T.PRIMARY),
+                shape=ft.RoundedRectangleBorder(radius=6),
+                padding=ft.Padding.symmetric(horizontal=6, vertical=4),
+            ),
+            height=34,
         )
 
         # ── Gradient Save button ───────────────────────────────────────────────
@@ -86,11 +118,10 @@ class TagEditor(ft.Column):
             T.card(
                 content=ft.Column(
                     [
-                        ft.Text("Tag Editor", size=20, weight=ft.FontWeight.BOLD, color=T.TEXT),
+                        ft.Text("Tag Editor", size=16, weight=ft.FontWeight.BOLD, color=T.TEXT),
                         ft.Text(
-                            "Select tracks on the left, then edit fields below. "
-                            "Empty fields are skipped when multiple files are selected.",
-                            size=11,
+                            "Select tracks on the left, then edit fields below.",
+                            size=10,
                             color=T.MUTED,
                         ),
                         ft.Divider(height=1, color=T.BORDER),
@@ -98,12 +129,18 @@ class TagEditor(ft.Column):
                             [
                                 self.cover_art_container,
                                 ft.Column(
-                                    [fetch_btn],
+                                    [
+                                        self.rename_files_btn,
+                                        self.auto_number_btn,
+                                        fetch_btn,
+                                    ],
                                     alignment=ft.MainAxisAlignment.CENTER,
+                                    horizontal_alignment=ft.CrossAxisAlignment.START,
+                                    spacing=6,
                                     expand=True,
                                 ),
                             ],
-                            spacing=14,
+                            spacing=10,
                             vertical_alignment=ft.CrossAxisAlignment.CENTER,
                         ),
                         self.track_field,
@@ -174,8 +211,8 @@ class TagEditor(ft.Column):
                 with open(cache_path, "wb") as f:
                     f.write(display_bytes)
                 self.cover_art_container.content = ft.Image(
-                    src=str(cache_path), width=160, height=160,
-                    fit="cover", border_radius=12,
+                    src=str(cache_path), width=120, height=120,
+                    fit="cover", border_radius=8,
                 )
             else:
                 self.cover_art_container.content = self._artwork_placeholder
@@ -224,3 +261,27 @@ class TagEditor(ft.Column):
 
         if self.on_save_complete:
             self.on_save_complete(len(self.app_state.selected_file_indices))
+
+    def auto_number_tracks(self, e):
+        """Sequentially numbers the track numbers of selected files."""
+        if not self.app_state.selected_file_indices:
+            logger.warning("Attempted to auto-number with no files selected.")
+            return
+
+        logger.info(f"Auto-numbering {len(self.app_state.selected_file_indices)} tracks.")
+        
+        # Sort indices to match their current listing/visual order in the table
+        selected_indices = sorted(list(self.app_state.selected_file_indices))
+        
+        for i, idx in enumerate(selected_indices, start=1):
+            file_data = self.app_state.current_files[idx]
+            meta = file_data['metadata']
+            meta['tracknumber'] = f"{i:02d}"
+            
+            try:
+                save_metadata_to_flac(file_data['path'], meta, meta.get('cover_art'))
+            except Exception as ex:
+                logger.error(f"Error saving auto-number to {file_data['path']}: {ex}", exc_info=True)
+                
+        if self.on_save_complete:
+            self.on_save_complete(len(selected_indices))

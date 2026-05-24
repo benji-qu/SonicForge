@@ -11,6 +11,7 @@ from core.metadata import get_metadata
 from ui.file_table import FileTable
 from ui.tag_editor import TagEditor
 from ui.artwork_dialog import ArtworkDialog
+from ui.rename_dialog import RenameDialog
 from ui import theme as T
 from utils.logger import logger
 from utils.paths import CACHE_DIR
@@ -86,17 +87,24 @@ class SonicForgeApp:
             ),
         )
 
+        # ── Window constraints ──────────────────────────────────────────────────
+        self.page.window.width = 1280
+        self.page.window.height = 720
+        self.page.window.resizable = True
+
         self.page.on_keyboard_event = self.on_keyboard
         self.page.on_close = self.on_close
         self.app_state = AppState()
 
         # ── Child components ───────────────────────────────────────────────────
         self.artwork_dialog = ArtworkDialog(self.page, self.app_state, self.set_status)
+        self.rename_dialog = RenameDialog(self.page, self.app_state, self.set_status)
         self.file_table = FileTable(self.app_state)
         self.tag_editor = TagEditor(
             self.app_state,
             on_fetch_artwork=self.artwork_dialog.open_for,
             on_select_local_artwork=self.handle_local_artwork,
+            on_rename_files=self.rename_dialog.open,
             on_save_complete=self.on_save_complete,
         )
 
@@ -134,82 +142,76 @@ class SonicForgeApp:
             border=ft.Border.only(bottom=ft.BorderSide(1, T.BORDER)),
         )
 
-        # ── Status bar (hidden when empty) ────────────────────────────────────
-        self.status_text = ft.Text("", color=T.SECONDARY, size=13)
+        # ── Status bar (permanent) ────────────────────────────────────────────
+        self.status_icon = ft.Icon(ft.Icons.INFO_OUTLINE, color=T.MUTED, size=14)
+        self.status_text = ft.Text("Pick a folder to start", color=T.MUTED, size=13)
         self.status_bar = ft.Container(
             content=ft.Row(
-                [ft.Icon(ft.Icons.INFO_OUTLINE, color=T.SECONDARY, size=14), self.status_text],
+                [self.status_icon, self.status_text],
                 spacing=8,
             ),
             bgcolor=ft.Colors.with_opacity(0.08, T.SECONDARY),
             padding=ft.Padding.symmetric(horizontal=24, vertical=8),
-            visible=False,
+            visible=True,
         )
 
-        # ── Tab 1: Tags ────────────────────────────────────────────────────────
-        tags_content = ft.Container(
+        # ── Tab Contents ───────────────────────────────────────────────────────
+        self.tags_content = ft.Container(
             content=ft.Row(
                 [
-                    ft.Container(content=self.file_table, expand=2, padding=16),
-                    ft.Container(content=self.tag_editor,  expand=1, padding=ft.Padding.only(top=16, right=16, bottom=16)),
-                ],
-                expand=True,
-            ),
-            expand=True,
-        )
-
-        # ── Tab shell ─────────────────────────────────────────────────────────
-        tabs = ft.Tabs(
-            length=3,
-            selected_index=0,
-            animation_duration=200,
-            expand=True,
-            content=ft.Column(
-                expand=True,
-                controls=[
-                    ft.TabBar(
-                        indicator_color=T.PRIMARY,
-                        label_color=T.TEXT,
-                        unselected_label_color=T.MUTED,
-                        divider_color=T.BORDER,
-                        tabs=[
-                            ft.Tab(
-                                label="Tags",
-                                icon=ft.Icons.LABEL_OUTLINE,
-                            ),
-                            ft.Tab(
-                                label="CUE Splitter",
-                                icon=ft.Icons.CONTENT_CUT,
-                            ),
-                            ft.Tab(
-                                label="Convert",
-                                icon=ft.Icons.SWAP_HORIZ,
-                            ),
-                        ],
+                    ft.Container(
+                        content=self.file_table, 
+                        expand=2, 
+                        padding=ft.Padding.only(left=16, top=16, bottom=16, right=8)
                     ),
-                    ft.TabBarView(
-                        expand=True,
-                        controls=[
-                            tags_content,
-                            self._placeholder_tab(
-                                "CUE Splitter",
-                                "Split a CUE + FLAC pair into individual tracks",
-                                ft.Icons.CONTENT_CUT,
-                                "Coming in the Future",
-                            ),
-                            self._placeholder_tab(
-                                "Convert",
-                                "Transcode FLAC files to OGG and other formats",
-                                ft.Icons.SWAP_HORIZ,
-                                "Coming in the Future",
-                            ),
-                        ],
+                    ft.Container(
+                        content=self.tag_editor,  
+                        expand=1, 
+                        padding=ft.Padding.only(left=8, top=16, bottom=16, right=16)
                     ),
                 ],
+                expand=True,
+                vertical_alignment=ft.CrossAxisAlignment.STRETCH,  # Make columns the exact same height!
             ),
+            expand=True,
+            visible=True,
         )
 
-        self.page.add(header, self.status_bar, tabs)
+        self.cue_content = ft.Container(
+            content=self._placeholder_tab(
+                "CUE Splitter",
+                "Split a CUE + FLAC pair into individual tracks",
+                ft.Icons.CONTENT_CUT,
+                "Coming in the Future",
+            ),
+            expand=True,
+            visible=False,
+            padding=16,
+        )
+
+        self.convert_content = ft.Container(
+            content=self._placeholder_tab(
+                "Convert",
+                "Transcode FLAC files to OGG and other formats",
+                ft.Icons.SWAP_HORIZ,
+                "Coming in the Future",
+            ),
+            expand=True,
+            visible=False,
+            padding=16,
+        )
+
+        # ── Custom Segmented Tab Bar ───────────────────────────────────────────
+        self.active_tab_index = 0
+        self.tab_buttons_row = ft.Row(spacing=10, tight=True)
+        self.update_tab_buttons()
+        
+        tab_bar_container = ft.Container(
+            content=self.tab_buttons_row,
+            padding=ft.Padding.only(left=24, top=14, bottom=0),
+        )
+
+        self.page.add(header, self.status_bar, tab_bar_container, self.tags_content, self.cue_content, self.convert_content)
         self.clean_cache()
         logger.info("SonicForgeApp initialized successfully.")
 
@@ -239,6 +241,45 @@ class SonicForgeApp:
             expand=True,
         )
 
+    def switch_tab(self, idx: int):
+        """Switches the active tab and refreshes the layout."""
+        self.active_tab_index = idx
+        self.tags_content.visible = (idx == 0)
+        self.cue_content.visible = (idx == 1)
+        self.convert_content.visible = (idx == 2)
+        
+        self.update_tab_buttons()
+        self.page.update()
+
+    def update_tab_buttons(self):
+        """Rebuilds the custom tab button row reflecting active state."""
+        self.tab_buttons_row.controls.clear()
+        tabs_spec = [
+            ("Tags", ft.Icons.LABEL_OUTLINE, 0),
+            ("CUE Splitter", ft.Icons.CONTENT_CUT, 1),
+            ("Convert", ft.Icons.SWAP_HORIZ, 2),
+        ]
+        
+        for name, icon, idx in tabs_spec:
+            is_active = (self.active_tab_index == idx)
+            btn = ft.Container(
+                content=ft.Row(
+                    [
+                        ft.Icon(icon, color=T.PRIMARY if is_active else T.MUTED, size=15),
+                        ft.Text(name, color=T.TEXT if is_active else T.MUTED, size=12, weight=ft.FontWeight.W_500),
+                    ],
+                    spacing=6,
+                    tight=True,
+                ),
+                bgcolor=ft.Colors.with_opacity(0.08, T.PRIMARY) if is_active else ft.Colors.TRANSPARENT,
+                border=ft.Border.all(1.2, T.PRIMARY if is_active else T.BORDER),
+                border_radius=8,
+                padding=ft.Padding.symmetric(horizontal=14, vertical=8),
+                on_click=lambda e, i=idx: self.switch_tab(i),
+                ink=True,
+            )
+            self.tab_buttons_row.controls.append(btn)
+
     # ── Event handlers ─────────────────────────────────────────────────────────
 
     def on_keyboard(self, e: ft.KeyboardEvent):
@@ -267,9 +308,34 @@ class SonicForgeApp:
         logger.debug(".cache folder ready")
 
     def set_status(self, text: str):
-        """Updates the status bar text and toggles its visibility."""
+        """Updates the status bar text and style."""
+        if not text:
+            # Revert to default/idle state
+            if not self.app_state.current_files:
+                text = "Pick a folder to start"
+                self.status_icon.name = ft.Icons.INFO_OUTLINE
+                self.status_icon.color = T.MUTED
+            else:
+                text = f"Ready — {len(self.app_state.current_files)} files loaded"
+                self.status_icon.name = ft.Icons.CHECK_CIRCLE_OUTLINE
+                self.status_icon.color = T.SUCCESS
+        else:
+            # Set dynamic status based on text content
+            if "✓" in text or "successfully" in text or "Saved" in text or "Renamed" in text or "processed" in text or "downloaded" in text:
+                self.status_icon.name = ft.Icons.CHECK_CIRCLE_OUTLINE
+                self.status_icon.color = T.SUCCESS
+            elif "error" in text.lower() or "fail" in text.lower():
+                self.status_icon.name = ft.Icons.ERROR_OUTLINE
+                self.status_icon.color = ft.Colors.RED_400
+            elif "loading" in text.lower() or "downloading" in text.lower() or "renaming" in text.lower() or "searching" in text.lower():
+                self.status_icon.name = ft.Icons.HOURGLASS_EMPTY_OUTLINED
+                self.status_icon.color = T.PRIMARY
+            else:
+                self.status_icon.name = ft.Icons.INFO_OUTLINE
+                self.status_icon.color = T.SECONDARY
+
         self.status_text.value = text
-        self.status_bar.visible = bool(text)
+        self.status_text.color = self.status_icon.color
         self.page.update()
 
     def load_directory(self, e):

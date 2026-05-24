@@ -12,17 +12,17 @@ class FileTable(ft.Row):
     """
 
     def __init__(self, app_state: AppState):
-        super().__init__(scroll=ft.ScrollMode.AUTO, expand=True)
+        super().__init__(expand=True, vertical_alignment=ft.CrossAxisAlignment.STRETCH)
         self.app_state = app_state
         self.app_state.add_listener(self.update_ui)
 
         self.table = ft.DataTable(
             columns=[
-                ft.DataColumn(ft.Text("File Name", color=T.PRIMARY, weight=ft.FontWeight.BOLD, size=12)),
-                ft.DataColumn(ft.Text("Artist",    color=T.PRIMARY, weight=ft.FontWeight.BOLD, size=12)),
-                ft.DataColumn(ft.Text("Title",     color=T.PRIMARY, weight=ft.FontWeight.BOLD, size=12)),
-                ft.DataColumn(ft.Text("Album",     color=T.PRIMARY, weight=ft.FontWeight.BOLD, size=12)),
-                ft.DataColumn(ft.Text("Track #",   color=T.PRIMARY, weight=ft.FontWeight.BOLD, size=12)),
+                ft.DataColumn(ft.Text("File Name", color=T.PRIMARY, weight=ft.FontWeight.BOLD, size=11)),
+                ft.DataColumn(ft.Text("Artist",    color=T.PRIMARY, weight=ft.FontWeight.BOLD, size=11)),
+                ft.DataColumn(ft.Text("Title",     color=T.PRIMARY, weight=ft.FontWeight.BOLD, size=11)),
+                ft.DataColumn(ft.Text("Album",     color=T.PRIMARY, weight=ft.FontWeight.BOLD, size=11)),
+                ft.DataColumn(ft.Text("Track #",   color=T.PRIMARY, weight=ft.FontWeight.BOLD, size=11)),
             ],
             rows=[],
             show_checkbox_column=True,
@@ -30,8 +30,8 @@ class FileTable(ft.Row):
             # Table-level row colour: drives selected/hovered tints for all rows
             data_row_color={"selected": T.ROW_SEL, "hovered": T.ROW_HOV},
             heading_row_color={"hovered": ft.Colors.with_opacity(0.08, T.PRIMARY)},   # ~8 % blue on hover
-            data_row_max_height=48,
-            column_spacing=20,
+            data_row_max_height=36,
+            column_spacing=12,
             divider_thickness=0.5,
             checkbox_horizontal_margin=16,
         )
@@ -40,7 +40,12 @@ class FileTable(ft.Row):
         self.controls = [
             T.card(
                 content=ft.Column(
-                    controls=[self.table],
+                    controls=[
+                        ft.Row(
+                            controls=[self.table],
+                            scroll=ft.ScrollMode.AUTO,
+                        )
+                    ],
                     scroll=ft.ScrollMode.AUTO,
                     expand=True,
                 ),
@@ -101,11 +106,11 @@ class FileTable(ft.Row):
                         selected=(i in self.app_state.selected_file_indices),
                         on_select_change=self.make_on_change(i),
                         cells=[
-                            ft.DataCell(ft.Text(name,                           color=T.TEXT,  size=13)),
-                            ft.DataCell(ft.Text(meta.get('artist',     ''),     color=T.TEXT,  size=13)),
-                            ft.DataCell(ft.Text(meta.get('title',      ''),     color=T.TEXT,  size=13)),
-                            ft.DataCell(ft.Text(meta.get('album',      ''),     color=T.TEXT,  size=13)),
-                            ft.DataCell(ft.Text(meta.get('tracknumber',''),     color=T.MUTED, size=12)),
+                            ft.DataCell(ft.Text(name,                           color=T.TEXT,  size=11, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS)),
+                            ft.DataCell(ft.Text(meta.get('artist',     ''),     color=T.TEXT,  size=11, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS)),
+                            ft.DataCell(ft.Text(meta.get('title',      ''),     color=T.TEXT,  size=11, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS)),
+                            ft.DataCell(ft.Text(meta.get('album',      ''),     color=T.TEXT,  size=11, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS)),
+                            ft.DataCell(ft.Text(meta.get('tracknumber',''),     color=T.MUTED, size=10, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS)),
                         ],
                     )
                     self.table.rows.append(row)

@@ -1,13 +1,15 @@
 # SonicForge
 
-A professional batch audio tag editor for FLAC files, built with Python and Flet.
+![Screenshot of SonicForge UI](assets/screenshot.png)
+
+
+A batch audio tag editor for FLAC files, built with Python and Flet.
 
 ## Features
 
 - 📁 Load an entire directory of FLAC files at once
 - ✏️ Batch-edit metadata tags (Title, Artist, Album, Track #, Year, Genre)
 - 🖼️ Set cover art from a local file or fetch it online from iTunes & Deezer
-- ☑️ Smart multi-selection (click, Shift+click, Ctrl+click, select-all)
 - 💾 Saves tags directly to the original FLAC files
 
 ## Project Structure
@@ -40,8 +42,9 @@ pip install -r requirements.txt
 ```bash
 # Run from the terminal:
 python3 main.py 
-# Or double-click on SonicForge.command
-```
+``` 
+Or double-click on `SonicForge.command`
+
 
 ## Packaging (Building `.app` for macOS)
 
