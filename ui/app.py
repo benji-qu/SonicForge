@@ -346,9 +346,10 @@ class SonicForgeApp:
             return
 
         logger.info(f"Loading directory: {path}")
-        self.set_status(f"Loading files from {path}…")
+        self.set_status(f"Loading files from {path}")
 
         def _load():
+            from concurrent.futures import ThreadPoolExecutor
             p = Path(path)
             flac_files = sorted(list(p.glob('*.flac')))
 
@@ -357,9 +358,13 @@ class SonicForgeApp:
                 self.set_status("No FLAC files found in the selected directory.")
                 return
 
+            logger.debug(f"Parsing metadata for {len(flac_files)} files in parallel.")
+            with ThreadPoolExecutor() as executor:
+                metadata_results = list(executor.map(get_metadata, [str(f) for f in flac_files]))
+
             files_data = [
-                {'path': str(f), 'metadata': get_metadata(str(f))}
-                for f in flac_files
+                {'path': str(f), 'metadata': meta}
+                for f, meta in zip(flac_files, metadata_results)
             ]
             self.app_state.load_files(files_data)
             self.set_status(f"✓  Loaded {len(files_data)} FLAC files.")
@@ -383,10 +388,16 @@ class SonicForgeApp:
         self.set_status(f"✓  Saved tags to {count} FLAC file(s)!")
 
         def _refresh():
-            logger.debug("Refreshing metadata for loaded files after save.")
+            from concurrent.futures import ThreadPoolExecutor
+            logger.debug("Refreshing metadata for loaded files in parallel after save.")
+            paths = [f['path'] for f in self.app_state.current_files]
+            
+            with ThreadPoolExecutor() as executor:
+                metadata_results = list(executor.map(get_metadata, paths))
+
             files_data = [
-                {'path': f['path'], 'metadata': get_metadata(f['path'])}
-                for f in self.app_state.current_files
+                {'path': p, 'metadata': meta}
+                for p, meta in zip(paths, metadata_results)
             ]
             # Use load_files() to properly reset selection and notify listeners
             self.app_state.load_files(files_data)

@@ -63,14 +63,31 @@ class FileTable(ft.Row):
                 content=ft.Column(
                     controls=[
                         ft.Row(
+                            [
+                                ft.Row(
+                                    [
+                                        ft.Icon(ft.Icons.AUDIO_FILE_OUTLINED, color=T.PRIMARY, size=16),
+                                        ft.Text("Tracks", size=13, weight=ft.FontWeight.BOLD, color=T.TEXT),
+                                    ],
+                                    spacing=8,
+                                    tight=True,
+                                ),
+                            ],
+                            alignment=ft.MainAxisAlignment.START,
+                            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                        ),
+                        ft.Divider(height=1, color=T.BORDER),
+                        ft.Row(
                             controls=[self.table],
                             scroll=ft.ScrollMode.AUTO,
+                            expand=True,
                         )
                     ],
                     scroll=ft.ScrollMode.AUTO,
                     expand=True,
+                    spacing=8,
                 ),
-                padding=8,
+                padding=12,
                 expand=True,
                 clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
             )
@@ -88,26 +105,25 @@ class FileTable(ft.Row):
         """Creates an event handler for a specific row's checkbox.
 
         Selection rules:
-          - Shift+click : add all rows between last anchor and this row (range select)
-          - Any other click : pure toggle — check adds, uncheck removes
+          - Shift+click : range-select all rows between last selected and this row
+          - Standard click : select only this row (clearing all others)
         """
         def on_change(e: ft.ControlEvent):
             is_checked = str(e.data).lower() == "true"
             is_shift = self.app_state.shift_pressed or is_shift_pressed_global()
 
             if is_shift and self.app_state.last_selected_index is not None:
-                # Range-select: add every row between anchor and current row
+                # Multi-select (range): add every row between anchor and current row
                 start = min(self.app_state.last_selected_index, idx)
                 end   = max(self.app_state.last_selected_index, idx)
                 for i in range(start, end + 1):
                     self.app_state.selected_file_indices.add(i)
-                # Keep anchor so repeated shift-clicks extend correctly
             else:
-                # Pure toggle — honours exactly what the checkbox now shows
+                # Single-select (clicking mode): selects ONLY this row
                 if is_checked:
-                    self.app_state.selected_file_indices.add(idx)
+                    self.app_state.set_selection([idx])
                 else:
-                    self.app_state.selected_file_indices.discard(idx)
+                    self.app_state.set_selection([])
                 self.app_state.last_selected_index = idx
 
             self.app_state.notify()
