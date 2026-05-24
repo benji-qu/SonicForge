@@ -32,9 +32,10 @@ class FileTable(ft.Row):
     UI Component displaying a selectable data table of audio files.
     """
 
-    def __init__(self, app_state: AppState):
+    def __init__(self, app_state: AppState, on_load_directory: ft.ControlEvent):
         super().__init__(expand=True, vertical_alignment=ft.CrossAxisAlignment.STRETCH)
         self.app_state = app_state
+        self.on_load_directory = on_load_directory
         self.app_state.add_listener(self.update_ui)
 
         self.table = ft.DataTable(
@@ -57,42 +58,84 @@ class FileTable(ft.Row):
             checkbox_horizontal_margin=16,
         )
 
-        # Wrap the DataTable in a frosted-glass card
-        self.controls = [
-            T.card(
-                content=ft.Column(
-                    controls=[
-                        ft.Row(
-                            [
-                                ft.Row(
-                                    [
-                                        ft.Icon(ft.Icons.AUDIO_FILE_OUTLINED, color=T.PRIMARY, size=16),
-                                        ft.Text("Tracks", size=13, weight=ft.FontWeight.BOLD, color=T.TEXT),
-                                    ],
-                                    spacing=8,
-                                    tight=True,
-                                ),
-                            ],
-                            alignment=ft.MainAxisAlignment.START,
-                            vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                        ),
-                        ft.Divider(height=1, color=T.BORDER),
-                        ft.Row(
-                            controls=[self.table],
-                            scroll=ft.ScrollMode.AUTO,
-                            expand=True,
-                        )
+        # Tracks Table Card (displayed when files are loaded)
+        self.tracks_header_row = ft.Row(
+            [
+                ft.Row(
+                    [
+                        ft.Icon(ft.Icons.AUDIO_FILE_OUTLINED, color=T.PRIMARY, size=16),
+                        ft.Text("Tracks", size=13, weight=ft.FontWeight.BOLD, color=T.TEXT),
                     ],
-                    scroll=ft.ScrollMode.AUTO,
-                    expand=True,
                     spacing=8,
+                    tight=True,
                 ),
-                padding=12,
+                ft.OutlinedButton(
+                    "Open Folder",
+                    icon=ft.Icons.FOLDER_OPEN,
+                    on_click=self.on_load_directory,
+                    style=ft.ButtonStyle(
+                        color=T.PRIMARY,
+                        side=ft.BorderSide(1.2, T.PRIMARY),
+                        shape=ft.RoundedRectangleBorder(radius=6),
+                        padding=ft.Padding.symmetric(horizontal=8, vertical=4),
+                    ),
+                    height=30,
+                )
+            ],
+            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        )
+
+        self.table_card = T.card(
+            content=ft.Column(
+                controls=[
+                    self.tracks_header_row,
+                    ft.Divider(height=1, color=T.BORDER),
+                    ft.Row(
+                        controls=[self.table],
+                        scroll=ft.ScrollMode.AUTO,
+                        expand=True,
+                    )
+                ],
+                scroll=ft.ScrollMode.AUTO,
                 expand=True,
-                clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
-            )
-        ]
-        self.visible = False
+                spacing=8,
+            ),
+            padding=12,
+            expand=True,
+            clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
+        )
+
+        # Onboarding Placeholder Card (displayed when empty)
+        self.onboarding_card = T.card(
+            content=ft.Column(
+                [
+                    ft.Icon(ft.Icons.FOLDER_OPEN_OUTLINED, size=48, color=T.MUTED),
+                    ft.Text("No Folder Loaded", size=15, weight=ft.FontWeight.BOLD, color=T.TEXT),
+                    ft.Text(
+                        "Open a folder containing FLAC files to start editing metadata.",
+                        size=11,
+                        color=T.MUTED,
+                        text_align=ft.TextAlign.CENTER,
+                    ),
+                    T.gradient_button(
+                        text="Open Folder",
+                        icon=ft.Icons.FOLDER_OPEN,
+                        on_click=self.on_load_directory,
+                        width=180,
+                    ),
+                ],
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                alignment=ft.MainAxisAlignment.CENTER,
+                spacing=12,
+            ),
+            padding=24,
+            expand=True,
+        )
+
+        # Set initial content
+        self.controls = [self.onboarding_card]
+        self.visible = True
 
     def handle_select_all(self, e: ft.ControlEvent):
         """Handles clicks on the select-all header checkbox."""
@@ -130,8 +173,18 @@ class FileTable(ft.Row):
         return on_change
 
     def update_ui(self):
-        """Synchronises the DataRow configurations with the global AppState."""
-        self.visible = len(self.app_state.current_files) > 0
+        """Synchronizes the DataRow configurations with the global AppState."""
+        self.visible = True
+
+        if len(self.app_state.current_files) == 0:
+            self.controls = [self.onboarding_card]
+            try:
+                self.update()
+            except Exception:
+                pass
+            return
+
+        self.controls = [self.table_card]
 
         try:
             if len(self.table.rows) != len(self.app_state.current_files):

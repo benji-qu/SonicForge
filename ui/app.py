@@ -13,6 +13,7 @@ from ui.tag_editor import TagEditor
 from ui.artwork_dialog import ArtworkDialog
 from ui.rename_dialog import RenameDialog
 from ui.autotag_dialog import AutoTagDialog
+from ui.cue_splitter_tab import CueSplitterTab
 from ui import theme as T
 from utils.logger import logger
 from utils.paths import CACHE_DIR
@@ -106,7 +107,7 @@ class SonicForgeApp:
             self.set_status,
             on_save_complete=self.on_save_complete
         )
-        self.file_table = FileTable(self.app_state)
+        self.file_table = FileTable(self.app_state, on_load_directory=self.load_directory)
         self.tag_editor = TagEditor(
             self.app_state,
             on_fetch_artwork=self.artwork_dialog.open_for,
@@ -125,25 +126,9 @@ class SonicForgeApp:
             ]
         )
 
-        open_btn = ft.Container(
-            content=ft.Row(
-                [
-                    ft.Icon(ft.Icons.FOLDER_OPEN_OUTLINED, color=T.PRIMARY, size=16),
-                    ft.Text("Open Folder", color=T.PRIMARY, size=14, weight=ft.FontWeight.W_500),
-                ],
-                spacing=8,
-                tight=True,
-            ),
-            border=ft.Border.all(1.5, T.PRIMARY),
-            border_radius=20,
-            padding=ft.Padding.symmetric(horizontal=18, vertical=10),
-            on_click=self.load_directory,
-            ink=True,
-        )
-
         header = ft.Container(
             content=ft.Row(
-                [logo, ft.Container(expand=True), open_btn],
+                [logo],
             ),
             padding=ft.Padding.symmetric(horizontal=24, vertical=14),
             bgcolor=T.SURFACE,
@@ -185,16 +170,11 @@ class SonicForgeApp:
             visible=True,
         )
 
+        self.cue_splitter_tab = CueSplitterTab(self.page, self.app_state, self.set_status)
         self.cue_content = ft.Container(
-            content=self._placeholder_tab(
-                "CUE Splitter",
-                "Split a CUE + FLAC pair into individual tracks",
-                ft.Icons.CONTENT_CUT,
-                "Coming in the Future",
-            ),
+            content=self.cue_splitter_tab,
             expand=True,
             visible=False,
-            padding=16,
         )
 
         self.convert_content = ft.Container(

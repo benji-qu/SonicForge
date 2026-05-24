@@ -13,6 +13,7 @@ A batch audio tag editor for FLAC files, built with Python and Flet.
 - 🖼️ **Unified Artwork Search**: Search and fetch high-resolution front covers online from iTunes and Deezer concurrently, or select from local files.
 - 🔢 **Auto-Number Tracks**: Sorts and sequentially indexes chosen files automatically (`01`, `02`, `03`...).
 - 🏷️ **Batch File Renaming**: Dynamically rename filenames based on custom tag patterns (e.g. `{track:02d} - {title}`) with robust character sanitisation and a live Before → After preview dialog.
+- ✂️ **Lossless CUE Splitter**: Slices a single large album-length FLAC file into individual tracks natively and losslessly using a CUE sheet and FFmpeg, complete with automatic metadata tag injection and selective track check-boxes.
 - 💾 **Safe Local Write-back**: Validates and saves tags directly to the original FLAC files losslessly.
 
 ## Project Structure
