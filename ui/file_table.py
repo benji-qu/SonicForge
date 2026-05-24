@@ -1,9 +1,30 @@
 import flet as ft
 import os
+import sys
+import ctypes
 
 from core.state import AppState
 from ui import theme as T
 from utils.logger import logger
+
+
+def is_shift_pressed_global() -> bool:
+    """Returns True if the Shift key is physically pressed down on macOS or Windows."""
+    if sys.platform == 'darwin':
+        try:
+            cg = ctypes.CDLL('/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics')
+            cg.CGEventSourceKeyState.restype = ctypes.c_bool
+            cg.CGEventSourceKeyState.argtypes = [ctypes.c_int, ctypes.c_int]
+            return cg.CGEventSourceKeyState(0, 56)
+        except Exception:
+            pass
+    elif sys.platform == 'win32':
+        try:
+            return (ctypes.windll.user32.GetKeyState(0x10) & 0x8000) != 0
+        except Exception:
+            pass
+    return False
+
 
 
 class FileTable(ft.Row):
@@ -72,8 +93,9 @@ class FileTable(ft.Row):
         """
         def on_change(e: ft.ControlEvent):
             is_checked = str(e.data).lower() == "true"
+            is_shift = self.app_state.shift_pressed or is_shift_pressed_global()
 
-            if self.app_state.shift_pressed and self.app_state.last_selected_index is not None:
+            if is_shift and self.app_state.last_selected_index is not None:
                 # Range-select: add every row between anchor and current row
                 start = min(self.app_state.last_selected_index, idx)
                 end   = max(self.app_state.last_selected_index, idx)
