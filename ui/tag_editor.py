@@ -20,6 +20,7 @@ class TagEditor(ft.Column):
         on_fetch_artwork: Callable[[str, str], None],
         on_select_local_artwork: Callable[[], None],
         on_rename_files: Callable[[], None],
+        on_autotag_album: Callable[[], None],
         on_save_complete: Optional[Callable[[int], None]] = None,
     ):
         super().__init__(expand=True, spacing=0)
@@ -27,6 +28,7 @@ class TagEditor(ft.Column):
         self.on_fetch_artwork = on_fetch_artwork
         self.on_select_local_artwork = on_select_local_artwork
         self.on_rename_files = on_rename_files
+        self.on_autotag_album = on_autotag_album
         self.on_save_complete = on_save_complete
 
         # ── Tag fields ─────────────────────────────────────────────────────────
@@ -106,6 +108,20 @@ class TagEditor(ft.Column):
             height=34,
         )
 
+        # ── Auto-Tag Album button ──────────────────────────────────────────────
+        self.autotag_btn = ft.OutlinedButton(
+            "Auto-Tag Album",
+            icon=ft.Icons.AUTO_AWESOME,
+            on_click=lambda e: self.on_autotag_album(),
+            style=ft.ButtonStyle(
+                color=T.PRIMARY,
+                side=ft.BorderSide(1.2, T.PRIMARY),
+                shape=ft.RoundedRectangleBorder(radius=6),
+                padding=ft.Padding.symmetric(horizontal=6, vertical=4),
+            ),
+            height=34,
+        )
+
         # ── Gradient Save button ───────────────────────────────────────────────
         save_btn = T.gradient_button(
             text="Save Tags",
@@ -132,6 +148,7 @@ class TagEditor(ft.Column):
                                     [
                                         self.rename_files_btn,
                                         self.auto_number_btn,
+                                        self.autotag_btn,
                                         fetch_btn,
                                     ],
                                     alignment=ft.MainAxisAlignment.CENTER,

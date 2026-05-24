@@ -1,7 +1,7 @@
 import pytest
 from core.state import AppState
 
-def test_app_state_initialization():
+def test_app_state_initialisation():
     state = AppState()
     assert state.current_files == []
     assert len(state.selected_file_indices) == 0

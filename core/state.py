@@ -18,7 +18,7 @@ class AppState:
         self.ctrl_pressed: bool = False
         self.last_selected_index: Optional[int] = None
         
-        logger.debug("AppState initialized")
+        logger.debug("AppState initialised")
         
     def add_listener(self, listener: Callable[[], None]):
         """Registers a callback to be invoked when state changes."""

@@ -12,6 +12,7 @@ from ui.file_table import FileTable
 from ui.tag_editor import TagEditor
 from ui.artwork_dialog import ArtworkDialog
 from ui.rename_dialog import RenameDialog
+from ui.autotag_dialog import AutoTagDialog
 from ui import theme as T
 from utils.logger import logger
 from utils.paths import CACHE_DIR
@@ -99,12 +100,19 @@ class SonicForgeApp:
         # ── Child components ───────────────────────────────────────────────────
         self.artwork_dialog = ArtworkDialog(self.page, self.app_state, self.set_status)
         self.rename_dialog = RenameDialog(self.page, self.app_state, self.set_status)
+        self.autotag_dialog = AutoTagDialog(
+            self.page,
+            self.app_state,
+            self.set_status,
+            on_save_complete=self.on_save_complete
+        )
         self.file_table = FileTable(self.app_state)
         self.tag_editor = TagEditor(
             self.app_state,
             on_fetch_artwork=self.artwork_dialog.open_for,
             on_select_local_artwork=self.handle_local_artwork,
             on_rename_files=self.rename_dialog.open,
+            on_autotag_album=self.autotag_dialog.open,
             on_save_complete=self.on_save_complete,
         )
 
@@ -213,7 +221,7 @@ class SonicForgeApp:
 
         self.page.add(header, self.status_bar, tab_bar_container, self.tags_content, self.cue_content, self.convert_content)
         self.clean_cache()
-        logger.info("SonicForgeApp initialized successfully.")
+        logger.info("SonicForgeApp initialised successfully.")
 
     # ── Helpers ────────────────────────────────────────────────────────────────
 

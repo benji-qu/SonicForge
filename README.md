@@ -7,10 +7,13 @@ A batch audio tag editor for FLAC files, built with Python and Flet.
 
 ## Features
 
-- 📁 Load an entire directory of FLAC files at once
-- ✏️ Batch-edit metadata tags (Title, Artist, Album, Track #, Year, Genre)
-- 🖼️ Set cover art from a local file or fetch it online from iTunes & Deezer
-- 💾 Saves tags directly to the original FLAC files
+- 📁 **Instant Parallel Loading**: Loads large music directories virtually instantaneously using concurrent thread pooling.
+- ✏️ **Dual-Selection Modes**: Native range multi-selection (`Shift+Click`) alongside standard single-clicking for rapid editing.
+- 🌐 **MusicBrainz Auto-Tagging**: Connects to the public MusicBrainz database to fetch complete, standardised album tag metadata, with a visual release card list and a dynamic, side-by-side track mapping preview with count mismatch warnings.
+- 🖼️ **Unified Artwork Search**: Search and fetch high-resolution front covers online from iTunes and Deezer concurrently, or select from local files.
+- 🔢 **Auto-Number Tracks**: Sorts and sequentially indexes chosen files automatically (`01`, `02`, `03`...).
+- 🏷️ **Batch File Renaming**: Dynamically rename filenames based on custom tag patterns (e.g. `{track:02d} - {title}`) with robust character sanitisation and a live Before → After preview dialog.
+- 💾 **Safe Local Write-back**: Validates and saves tags directly to the original FLAC files losslessly.
 
 ## Project Structure
 

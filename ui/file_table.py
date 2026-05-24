@@ -130,7 +130,7 @@ class FileTable(ft.Row):
         return on_change
 
     def update_ui(self):
-        """Synchronizes the DataRow configurations with the global AppState."""
+        """Synchronises the DataRow configurations with the global AppState."""
         self.visible = len(self.app_state.current_files) > 0
 
         try:

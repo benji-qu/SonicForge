@@ -7,7 +7,7 @@ from utils.logger import logger
 
 def get_metadata(file_path: str) -> Dict[str, Any]:
     """
-    Reads metadata from an audio file and standardizes it.
+    Reads metadata from an audio file and standardises it.
     
     Args:
         file_path: The absolute path to the audio file.
@@ -126,7 +126,7 @@ def write_metadata_to_ogg(ogg_path: str, tags: Dict[str, Any], cover_art: Option
 
 def generate_filename(pattern: str, metadata: dict, original_path: str) -> str:
     """
-    Generates a standardized filename based on a pattern template and metadata tags.
+    Generates a standardised filename based on a pattern template and metadata tags.
     
     Supported placeholders:
       - {track}       : Raw track number (e.g., "1", "01/12")
@@ -139,7 +139,7 @@ def generate_filename(pattern: str, metadata: dict, original_path: str) -> str:
     
     Args:
         pattern: The naming template (e.g., "{track:02d} - {title}")
-        metadata: Standardized metadata tags dictionary
+        metadata: Standardised metadata tags dictionary
         original_path: Original path of the file
         
     Returns:
@@ -195,12 +195,12 @@ def generate_filename(pattern: str, metadata: dict, original_path: str) -> str:
         for k, v in fmt_dict.items():
             new_name = new_name.replace(f"{{{k}}}", str(v))
             
-    # Sanitize name to remove OS-forbidden characters
+    # Sanitise name to remove OS-forbidden characters
     invalid_chars = ['/', '\\', ':', '*', '?', '"', '<', '>', '|']
     for char in invalid_chars:
         new_name = new_name.replace(char, '_')
         
-    # Standardize whitespace (remove duplicate spaces, strip outer spaces)
+    # Standardise whitespace (remove duplicate spaces, strip outer spaces)
     new_name = " ".join(new_name.split())
     
     # Ensure correct extension suffix
