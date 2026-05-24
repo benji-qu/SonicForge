@@ -8,6 +8,8 @@ from utils.logger import logger
 from core.api_client import fetch_itunes_artwork, fetch_deezer_artwork
 from core.image_utils import process_downloaded_image
 from core.state import AppState
+from ui import theme as T
+
 
 class ArtworkDialog:
     """
@@ -15,53 +17,65 @@ class ArtworkDialog:
     Opens immediately with a loading spinner, then populates results
     progressively as each API responds.
     """
+
     def __init__(self, page: ft.Page, app_state: AppState, set_status: Callable[[str], None]):
-        self.page = page
+        self.page      = page
         self.app_state = app_state
         self.set_status = set_status
-        
+
         self._loading_indicator = ft.Column(
             [
-                ft.ProgressRing(width=40, height=40),
-                ft.Text("Searching for artwork...", size=13),
+                ft.ProgressRing(width=40, height=40, color=T.PRIMARY),
+                ft.Text("Searching for artwork…", size=13, color=T.MUTED),
             ],
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-            spacing=10,
+            spacing=12,
         )
-        
+
         self._results_row = ft.Row(wrap=True, spacing=10, scroll=ft.ScrollMode.AUTO, width=580)
-        
+
         self._content = ft.Column(
             controls=[self._loading_indicator],
             scroll=ft.ScrollMode.AUTO,
             height=300,
             width=600,
         )
-        
+
         self.dialog = ft.AlertDialog(
-            title=ft.Text("Select Artwork"),
+            title=ft.Text("Select Artwork", weight=ft.FontWeight.BOLD, color=T.TEXT),
             content=self._content,
-            actions=[ft.TextButton("Cancel", on_click=self.close)],
+            bgcolor=T.SURFACE,
+            actions=[
+                ft.OutlinedButton(
+                    "Cancel",
+                    on_click=self.close,
+                    style=ft.ButtonStyle(
+                        color=T.MUTED,
+                        side=ft.BorderSide(1, T.BORDER),
+                        shape=ft.RoundedRectangleBorder(radius=8),
+                    ),
+                )
+            ],
         )
-        
+
     def close(self, e: Optional[ft.ControlEvent] = None):
         """Closes the dialog."""
         self.dialog.open = False
         self.page.update()
-        
+
     def _show(self):
         """Ensures the dialog is mounted and visible."""
         if self.dialog not in self.page.overlay:
             self.page.overlay.append(self.dialog)
         self.dialog.open = True
         self.page.update()
-        
+
     def _add_result(self, r: dict):
         """Appends a single artwork result card to the dialog and refreshes."""
         def make_on_select(url: str):
             def on_select(ev):
                 self.close()
-                self.set_status("Downloading artwork...")
+                self.set_status("Downloading artwork…")
                 def download():
                     try:
                         logger.info(f"Downloading high-res artwork from {url}")
@@ -75,24 +89,31 @@ class ArtworkDialog:
                         self.set_status("Failed to download image.")
                 threading.Thread(target=download, daemon=True).start()
             return on_select
-            
-        img_btn = ft.Container(
-            content=ft.Column([
-                ft.Image(src=r['thumb_url'], width=100, height=100, fit="cover", border_radius=8),
-                ft.Text(
-                    f"[{r['source']}]\n{r['album_name'][:18]}",
-                    size=10,
-                    text_align=ft.TextAlign.CENTER,
-                    width=100,
-                )
-            ], spacing=4, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+
+        img_card = ft.Container(
+            content=ft.Column(
+                [
+                    ft.Image(src=r['thumb_url'], width=100, height=100, fit="cover", border_radius=8),
+                    ft.Text(
+                        f"[{r['source']}]\n{r['album_name'][:18]}",
+                        size=10,
+                        color=T.MUTED,
+                        text_align=ft.TextAlign.CENTER,
+                        width=100,
+                    ),
+                ],
+                spacing=6,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            ),
             on_click=make_on_select(r['high_res_url']),
             tooltip=r['album_name'],
-            padding=6,
-            border_radius=8,
+            padding=8,
+            border_radius=10,
+            bgcolor=T.BG,
+            border=ft.Border.all(1, T.BORDER),
             ink=True,
         )
-        self._results_row.controls.append(img_btn)
+        self._results_row.controls.append(img_card)
         self.page.update()
 
     def open_for(self, artist: str, album: str):
@@ -123,7 +144,7 @@ class ArtworkDialog:
 
             with ThreadPoolExecutor(max_workers=2) as executor:
                 futures = {executor.submit(fn): name for name, fn in fetchers.items()}
-                
+
                 first_result = True
                 for future in as_completed(futures):
                     source = futures[future]
@@ -142,7 +163,11 @@ class ArtworkDialog:
 
             if not found_any:
                 self._content.controls = [
-                    ft.Text("No artwork found. Try different artist/album names.", italic=True)
+                    ft.Text(
+                        "No artwork found. Try different artist/album names.",
+                        italic=True,
+                        color=T.MUTED,
+                    )
                 ]
                 self.page.update()
                 self.set_status("No artwork found.")
