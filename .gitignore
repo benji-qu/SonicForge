@@ -18,6 +18,9 @@ htmlcov/
 # Application
 sonicforge.log
 .cache/
+SonicForge.spec
+build/
+dist/
 
 # macOS
 .DS_Store

@@ -38,12 +38,24 @@ pip install -r requirements.txt
 ## Running
 
 ```bash
-# macOS — double-click or run directly:
-./SonicForge.command
-
-# Or from the terminal:
-python3 main.py
+# Run from the terminal:
+python3 main.py 
+# Or double-click on SonicForge.command
 ```
+
+## Packaging (Building `.app` for macOS)
+
+To compile SonicForge into a standalone macOS `.app` that can be placed in your `/Applications` folder:
+
+1. Install PyInstaller inside your virtual environment:
+   ```bash
+   pip install pyinstaller
+   ```
+2. Build the app bundle with the custom flat icon:
+   ```bash
+   flet pack main.py --icon assets/icon.icns --name "SonicForge"
+   ```
+This will generate `dist/SonicForge.app` which you can double-click or drag into your `/Applications` folder!
 
 ## Testing
 
@@ -55,3 +67,5 @@ python3 -m pytest tests/ -v
 
 - Python 3.11+
 - macOS (native dialog support via `osascript`; Linux/Windows fall back to tkinter)
+- Dependencies listed in `requirements.txt`
+
