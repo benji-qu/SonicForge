@@ -14,6 +14,8 @@ A batch audio tag editor for FLAC files, built with Python and Flet.
 - 🔢 **Auto-Number Tracks**: Sorts and sequentially indexes chosen files automatically (`01`, `02`, `03`...).
 - 🏷️ **Batch File Renaming**: Dynamically rename filenames based on custom tag patterns (e.g. `{track:02d} - {title}`) with robust character sanitisation and a live Before → After preview dialog.
 - ✂️ **Lossless CUE Splitter**: Slices a single large album-length FLAC file into individual tracks natively and losslessly using a CUE sheet and FFmpeg, complete with automatic metadata tag injection and selective track check-boxes.
+- 🔄 **Audio Transcoder**: Batch transcode audio files natively and asynchronously using FFmpeg. Supports encoding to high-quality **MP3** (with selectable bitrates), **OGG Vorbis** (with quality levels), and uncompressed **WAV** format, preserving all original tags, embedded artwork, and folder structures.
+- 📊 **Space-Saving Metrics**: Provides real-time, side-by-side size difference reports for each file during transcoding and displays an aggregate space-saving summary (total MB and % reduction) upon completion.
 - 💾 **Safe Local Write-back**: Validates and saves tags directly to the original FLAC files losslessly.
 
 ## Project Structure
