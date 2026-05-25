@@ -147,8 +147,8 @@ class TagEditor(ft.Column):
                                 ft.Column(
                                     [
                                         self.rename_files_btn,
-                                        self.auto_number_btn,
                                         self.autotag_btn,
+                                        self.auto_number_btn,
                                         fetch_btn,
                                     ],
                                     alignment=ft.MainAxisAlignment.CENTER,

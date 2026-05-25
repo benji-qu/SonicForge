@@ -100,6 +100,8 @@ class CueSplitterTab(ft.Row):
             ],
             border_radius=6,
             height=38,
+            text_size=12,
+            content_padding=ft.Padding.symmetric(horizontal=12, vertical=4),
             expand=True,
         )
 
@@ -122,6 +124,8 @@ class CueSplitterTab(ft.Row):
             ],
             border_radius=6,
             height=38,
+            text_size=12,
+            content_padding=ft.Padding.symmetric(horizontal=12, vertical=4),
             expand=True
         )
 
@@ -391,6 +395,7 @@ class CueSplitterTab(ft.Row):
             cb = ft.Checkbox(
                 value=True,
                 fill_color=T.PRIMARY,
+                on_change=self.handle_checkbox_change,
             )
             self.track_checkboxes.append(cb)
             
@@ -436,6 +441,11 @@ class CueSplitterTab(ft.Row):
         val = self.select_all_checkbox.value
         for cb in self.track_checkboxes:
             cb.value = val
+        self.page_ref.update()
+
+    def handle_checkbox_change(self, e):
+        """Updates the Select All checkbox based on individual selections."""
+        self.select_all_checkbox.value = all(cb.value for cb in self.track_checkboxes) if self.track_checkboxes else False
         self.page_ref.update()
 
     # ── Audio Slicing Implementation ──────────────────────────────────────────

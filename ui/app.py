@@ -14,6 +14,7 @@ from ui.artwork_dialog import ArtworkDialog
 from ui.rename_dialog import RenameDialog
 from ui.autotag_dialog import AutoTagDialog
 from ui.cue_splitter_tab import CueSplitterTab
+from ui.convert_tab import ConvertTab
 from ui import theme as T
 from utils.logger import logger
 from utils.paths import CACHE_DIR
@@ -177,16 +178,11 @@ class SonicForgeApp:
             visible=False,
         )
 
+        self.convert_tab = ConvertTab(self.page, self.app_state, self.set_status, on_load_directory=self.load_directory)
         self.convert_content = ft.Container(
-            content=self._placeholder_tab(
-                "Convert",
-                "Transcode FLAC files to OGG and other formats",
-                ft.Icons.SWAP_HORIZ,
-                "Coming in the Future",
-            ),
+            content=self.convert_tab,
             expand=True,
             visible=False,
-            padding=16,
         )
 
         # ── Custom Segmented Tab Bar ───────────────────────────────────────────
