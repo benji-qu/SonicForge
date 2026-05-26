@@ -1,6 +1,6 @@
 # SonicForge
 
-![Screenshot of SonicForge UI](assets/screenshot.png)
+![Screenshot of SonicForge UI](assets/image_tag_editor.png)
 
 
 A batch audio tag editor for FLAC files, built with Python and Flet.
