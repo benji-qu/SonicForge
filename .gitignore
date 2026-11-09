@@ -18,7 +18,6 @@ htmlcov/
 # Application
 sonicforge.log
 .cache/
-SonicForge.spec
 build/
 dist/
 

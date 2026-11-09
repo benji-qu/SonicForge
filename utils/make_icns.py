@@ -14,7 +14,7 @@ def make_icns():
     print(f"Generating macOS iconset from {png_path}...")
     iconset_dir.mkdir(exist_ok=True)
     
-    img = Image.open(png_path)
+    img = Image.open(png_path).convert("RGBA")
     
     # Standard macOS icon sizes
     sizes = [
@@ -32,7 +32,7 @@ def make_icns():
     
     for name, size in sizes:
         resized = img.resize((size, size), Image.Resampling.LANCZOS)
-        resized.save(iconset_dir / f"icon_{name}.png")
+        resized.save(iconset_dir / f"icon_{name}.png", format="PNG")
         
     print("Running iconutil to compile .icns...")
     icns_output = project_root / "assets" / "icon.icns"

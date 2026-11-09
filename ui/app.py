@@ -1,13 +1,11 @@
 import flet as ft
 from pathlib import Path
 import os
-import subprocess
-import sys
 import threading
 
 from core.state import AppState
 from core.image_utils import process_local_image
-from core.metadata import get_metadata
+from core.metadata import get_metadata, SUPPORTED_AUDIO_EXTENSIONS
 from ui.file_table import FileTable
 from ui.tag_editor import TagEditor
 from ui.artwork_dialog import ArtworkDialog
@@ -16,56 +14,23 @@ from ui.autotag_dialog import AutoTagDialog
 from ui.cue_splitter_tab import CueSplitterTab
 from ui.convert_tab import ConvertTab
 from ui import theme as T
+from utils.dialogs import choose_directory, choose_file
 from utils.logger import logger
 from utils.paths import CACHE_DIR
 
 
 def open_directory_dialog():
     """Opens a native directory selection dialog."""
-    logger.debug("Opening directory dialog")
-    if sys.platform == 'darwin':
-        try:
-            cmd = ['osascript', '-e', 'tell app "System Events" to activate', '-e', 'tell app "System Events" to return POSIX path of (choose folder with prompt "Select FLAC Directory")']
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            if result.returncode == 0:
-                return result.stdout.strip()
-        except Exception as e:
-            logger.debug(f"macOS directory dialog failed: {e}")
-    try:
-        import tkinter as tk
-        from tkinter import filedialog
-        root = tk.Tk()
-        root.withdraw()
-        path = filedialog.askdirectory(title="Select FLAC Directory")
-        root.destroy()
-        return path
-    except Exception as e:
-        logger.error(f"Fallback directory dialog failed: {e}")
-        return ""
+    return choose_directory("Select Audio Directory")
 
 
 def open_file_dialog():
     """Opens a native file selection dialog for images."""
-    logger.debug("Opening file dialog for image selection")
-    if sys.platform == 'darwin':
-        try:
-            cmd = ['osascript', '-e', 'tell app "System Events" to activate', '-e', 'tell app "System Events" to return POSIX path of (choose file with prompt "Select Cover Art (JPG/PNG)")']
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            if result.returncode == 0:
-                return result.stdout.strip()
-        except Exception as e:
-            logger.debug(f"macOS file dialog failed: {e}")
-    try:
-        import tkinter as tk
-        from tkinter import filedialog
-        root = tk.Tk()
-        root.withdraw()
-        path = filedialog.askopenfilename(title="Select Cover Art", filetypes=[("Images", "*.jpg *.jpeg *.png")])
-        root.destroy()
-        return path
-    except Exception as e:
-        logger.error(f"Fallback file dialog failed: {e}")
-        return ""
+    return choose_file(
+        "Select Cover Art (JPG/PNG)",
+        extensions=["jpg", "jpeg", "png"],
+        tk_filetypes=[("Images", "*.jpg *.jpeg *.png")],
+    )
 
 
 class SonicForgeApp:
@@ -92,8 +57,11 @@ class SonicForgeApp:
 
         # ── Window constraints ──────────────────────────────────────────────────
         self.page.window.width = 1280
-        self.page.window.height = 720
+        self.page.window.height = 820
+        self.page.window.min_width = 1100
+        self.page.window.min_height = 760
         self.page.window.resizable = True
+        self.page.window.alignment = ft.Alignment.CENTER
 
         self.page.on_keyboard_event = self.on_keyboard
         self.page.on_close = self.on_close
@@ -118,35 +86,49 @@ class SonicForgeApp:
             on_save_complete=self.on_save_complete,
         )
 
-        # ── Header bar ─────────────────────────────────────────────────────────
+        # ── Unified Header Bar (Logo + Tabs + Status Pill) ────────────────────
         logo = ft.Text(
             spans=[
-                ft.TextSpan("Sonic", style=ft.TextStyle(color=T.PRIMARY, size=26, weight=ft.FontWeight.BOLD)),
-                ft.TextSpan("Forge", style=ft.TextStyle(color=T.SECONDARY, size=26, weight=ft.FontWeight.BOLD)),
-                ft.TextSpan(" ⚡",   style=ft.TextStyle(color=T.PRIMARY, size=24)),
+                ft.TextSpan("Sonic", style=ft.TextStyle(color=T.PRIMARY, size=22, weight=ft.FontWeight.BOLD)),
+                ft.TextSpan("Forge", style=ft.TextStyle(color=T.SECONDARY, size=22, weight=ft.FontWeight.BOLD)),
+                ft.TextSpan(" ⚡",   style=ft.TextStyle(color=T.PRIMARY, size=20)),
             ]
         )
 
-        header = ft.Container(
-            content=ft.Row(
-                [logo],
-            ),
-            padding=ft.Padding.symmetric(horizontal=24, vertical=14),
-            bgcolor=T.SURFACE,
-            border=ft.Border.only(bottom=ft.BorderSide(1, T.BORDER)),
-        )
-
-        # ── Status bar (permanent) ────────────────────────────────────────────
+        # Status pill (right side of header)
         self.status_icon = ft.Icon(ft.Icons.INFO_OUTLINE, color=T.MUTED, size=14)
-        self.status_text = ft.Text("Pick a folder to start", color=T.MUTED, size=13)
+        self.status_text = ft.Text("Pick a folder to start", color=T.MUTED, size=12, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS)
         self.status_bar = ft.Container(
             content=ft.Row(
                 [self.status_icon, self.status_text],
-                spacing=8,
+                spacing=6,
+                tight=True,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
             ),
             bgcolor=ft.Colors.with_opacity(0.08, T.SECONDARY),
-            padding=ft.Padding.symmetric(horizontal=24, vertical=8),
+            border=ft.Border.all(1, T.BORDER),
+            border_radius=20,
+            padding=ft.Padding.symmetric(horizontal=12, vertical=6),
             visible=True,
+        )
+
+        # Custom Segmented Tab Bar (center of header)
+        self.active_tab_index = 0
+        self.tab_buttons_row = ft.Row(spacing=8, tight=True)
+        self.update_tab_buttons()
+
+        header = ft.Container(
+            content=ft.Row(
+                [
+                    ft.Row([logo, ft.Container(width=16), self.tab_buttons_row], vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                    self.status_bar,
+                ],
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            ),
+            padding=ft.Padding.symmetric(horizontal=20, vertical=10),
+            bgcolor=T.SURFACE,
+            border=ft.Border.only(bottom=ft.BorderSide(1, T.BORDER)),
         )
 
         # ── Tab Contents ───────────────────────────────────────────────────────
@@ -156,12 +138,12 @@ class SonicForgeApp:
                     ft.Container(
                         content=self.file_table, 
                         expand=2, 
-                        padding=ft.Padding.only(left=16, top=16, bottom=16, right=8)
+                        padding=ft.Padding.only(left=16, top=14, bottom=16, right=8)
                     ),
                     ft.Container(
                         content=self.tag_editor,  
                         expand=1, 
-                        padding=ft.Padding.only(left=8, top=16, bottom=16, right=16)
+                        padding=ft.Padding.only(left=8, top=14, bottom=16, right=16)
                     ),
                 ],
                 expand=True,
@@ -185,17 +167,8 @@ class SonicForgeApp:
             visible=False,
         )
 
-        # ── Custom Segmented Tab Bar ───────────────────────────────────────────
-        self.active_tab_index = 0
-        self.tab_buttons_row = ft.Row(spacing=10, tight=True)
-        self.update_tab_buttons()
-        
-        tab_bar_container = ft.Container(
-            content=self.tab_buttons_row,
-            padding=ft.Padding.only(left=24, top=14, bottom=0),
-        )
-
-        self.page.add(header, self.status_bar, tab_bar_container, self.tags_content, self.cue_content, self.convert_content)
+        self.page.add(header, self.tags_content, self.cue_content, self.convert_content)
+        self.page.run_task(self.page.window.center)
         self.clean_cache()
         logger.info("SonicForgeApp initialised successfully.")
 
@@ -267,9 +240,30 @@ class SonicForgeApp:
     # ── Event handlers ─────────────────────────────────────────────────────────
 
     def on_keyboard(self, e: ft.KeyboardEvent):
-        """Global keyboard event listener for modifiers."""
+        """Global keyboard event listener for modifiers and shortcuts."""
         self.app_state.shift_pressed = e.shift
         self.app_state.ctrl_pressed = e.ctrl or e.meta
+
+        if e.ctrl or e.meta:
+            key = (e.key or "").upper()
+            if key == "O":
+                self.load_directory(None)
+            elif key == "S" and self.active_tab_index == 0:
+                self.tag_editor.save_metadata()
+            elif key == "R" and self.active_tab_index == 0:
+                self.rename_dialog.open()
+            elif key == "A" and self.active_tab_index == 0 and self.app_state.current_files:
+                vis = self.file_table._visible_indices()
+                if len(self.app_state.selected_file_indices) == len(vis):
+                    self.app_state.set_selection([])
+                else:
+                    self.app_state.set_selection(vis)
+            elif key == "1":
+                self.switch_tab(0)
+            elif key == "2":
+                self.switch_tab(1)
+            elif key == "3":
+                self.switch_tab(2)
 
     def _clear_cache(self):
         """Deletes all temporary preview images from the cache directory."""
@@ -323,7 +317,7 @@ class SonicForgeApp:
         self.page.update()
 
     def load_directory(self, e):
-        """Loads all FLAC files from a user-selected directory (threaded to avoid UI freeze)."""
+        """Loads all supported audio files from a user-selected directory (threaded to avoid UI freeze)."""
         path = open_directory_dialog()
         if not path or not os.path.isdir(path):
             logger.debug("Directory selection cancelled or invalid.")
@@ -335,23 +329,26 @@ class SonicForgeApp:
         def _load():
             from concurrent.futures import ThreadPoolExecutor
             p = Path(path)
-            flac_files = sorted(list(p.glob('*.flac')))
+            audio_files = sorted(
+                f for f in p.iterdir()
+                if f.is_file() and f.suffix.lower() in SUPPORTED_AUDIO_EXTENSIONS
+            )
 
-            if not flac_files:
-                logger.warning("No FLAC files found in directory.")
-                self.set_status("No FLAC files found in the selected directory.")
+            if not audio_files:
+                logger.warning("No supported audio files found in directory.")
+                self.set_status("No supported audio files found in the selected directory.")
                 return
 
-            logger.debug(f"Parsing metadata for {len(flac_files)} files in parallel.")
+            logger.debug(f"Parsing metadata for {len(audio_files)} files in parallel.")
             with ThreadPoolExecutor() as executor:
-                metadata_results = list(executor.map(get_metadata, [str(f) for f in flac_files]))
+                metadata_results = list(executor.map(get_metadata, [str(f) for f in audio_files]))
 
             files_data = [
                 {'path': str(f), 'metadata': meta}
-                for f, meta in zip(flac_files, metadata_results)
+                for f, meta in zip(audio_files, metadata_results)
             ]
             self.app_state.load_files(files_data)
-            self.set_status(f"✓  Loaded {len(files_data)} FLAC files.")
+            self.set_status(f"✓  Loaded {len(files_data)} audio files.")
 
         threading.Thread(target=_load, daemon=True).start()
 
@@ -369,7 +366,7 @@ class SonicForgeApp:
 
     def on_save_complete(self, count: int):
         """Callback invoked when metadata is successfully saved. Re-reads files to sync state."""
-        self.set_status(f"✓  Saved tags to {count} FLAC file(s)!")
+        self.set_status(f"✓  Saved tags to {count} audio file(s)!")
 
         def _refresh():
             from concurrent.futures import ThreadPoolExecutor

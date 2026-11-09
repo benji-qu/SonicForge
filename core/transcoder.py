@@ -8,7 +8,14 @@ from mutagen.mp3 import MP3
 from mutagen.id3 import ID3, APIC
 
 from utils.logger import logger
-from core.metadata import save_metadata_to_flac, write_metadata_to_ogg
+import utils.paths  # Ensure PATH includes Homebrew/local binaries
+from core.metadata import (
+    save_metadata,
+    save_metadata_to_flac,
+    write_metadata_to_ogg,
+    write_metadata_to_m4a,
+    write_metadata_to_id3_container,
+)
 
 def transcode_file(
     input_path: str,
@@ -52,6 +59,11 @@ def transcode_file(
         if not bitrate.endswith('k'):
             bitrate += 'k'
         cmd += ['-c:a', 'libmp3lame', '-b:a', bitrate]
+    elif target_format == 'm4a':
+        bitrate = quality.lower().replace('kbps', '').strip()
+        if not bitrate.endswith('k'):
+            bitrate += 'k'
+        cmd += ['-c:a', 'aac', '-b:a', bitrate]
     elif target_format == 'ogg':
         # Default OGG Vorbis quality (q6 corresponds to standard 192kbps)
         q_val = '6'
@@ -60,6 +72,8 @@ def transcode_file(
         elif quality.isdigit():
             q_val = quality
         cmd += ['-c:a', 'libvorbis', '-q:a', q_val]
+    elif target_format == 'flac':
+        cmd += ['-c:a', 'flac']
     elif target_format == 'wav':
         cmd += ['-c:a', 'pcm_s16le']
     else:
@@ -167,6 +181,9 @@ def inject_metadata(file_path: str, format_type: str, metadata: Dict[str, Any], 
         except Exception as e:
             logger.error(f"Failed to save MP3 metadata for {file_path}: {e}", exc_info=True)
             
+    elif format_type == 'm4a':
+        write_metadata_to_m4a(file_path, tags, cover_art)
+            
     elif format_type == 'wav':
         try:
             audio = mutagen.File(file_path)
@@ -180,3 +197,5 @@ def inject_metadata(file_path: str, format_type: str, metadata: Dict[str, Any], 
             logger.info(f"Successfully saved WAV metadata to {file_path}")
         except Exception as e:
             logger.error(f"Failed to save WAV metadata for {file_path}: {e}", exc_info=True)
+    else:
+        save_metadata(file_path, tags, cover_art)

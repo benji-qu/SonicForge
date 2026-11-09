@@ -51,6 +51,18 @@ def test_fetch_deezer_artwork_empty_query():
     assert fetch_deezer_artwork('', '') == []
 
 
+@patch('core.api_client.requests.get')
+def test_fetch_deezer_artwork_special_chars_encoded(mock_get):
+    mock_response = MagicMock()
+    mock_response.json.return_value = {'data': []}
+    mock_get.return_value = mock_response
+
+    fetch_deezer_artwork('AC/DC & Friends', 'Back "In" Black #1')
+    called_url = mock_get.call_args[0][0]
+    assert ' ' not in called_url
+    assert '%26' in called_url or '%22' in called_url
+
+
 # ── MusicBrainz API Mock Tests ────────────────────────────────────────────────────
 
 @patch('core.api_client.requests.get')

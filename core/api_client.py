@@ -60,7 +60,20 @@ def fetch_deezer_artwork(artist: str, album: str) -> List[Dict[str, str]]:
     if not artist and not album: 
         return []
         
-    url = f"https://api.deezer.com/search/album?q=artist:\"{artist}\" album:\"{album}\"&limit=5"
+    parts = []
+    if artist:
+        clean_artist = artist.replace('"', '').strip()
+        if clean_artist:
+            parts.append(f'artist:"{clean_artist}"')
+    if album:
+        clean_album = album.replace('"', '').strip()
+        if clean_album:
+            parts.append(f'album:"{clean_album}"')
+    if not parts:
+        return []
+        
+    encoded_query = urllib.parse.quote_plus(" ".join(parts))
+    url = f"https://api.deezer.com/search/album?q={encoded_query}&limit=5"
     
     try:
         logger.debug(f"Fetching Deezer artwork for artist={artist}, album={album}")

@@ -11,7 +11,7 @@ from ui import theme as T
 
 class RenameDialog:
     """
-    UI Component for renaming selected FLAC files interactively.
+    UI Component for renaming selected audio files interactively.
     Allows selecting a naming pattern and displays a live Before -> After preview.
     """
 
@@ -30,11 +30,11 @@ class RenameDialog:
             focused_border_color=T.SECONDARY,
             value="{track:02d} - {title}",  # Default naming scheme
             options=[
-                ft.DropdownOption("{track:02d} - {title}", "01 - Track Title.flac"),
-                ft.DropdownOption("{artist} - {title}", "Artist - Track Title.flac"),
-                ft.DropdownOption("{track:02d}. {artist} - {title}", "01. Artist - Track Title.flac"),
-                ft.DropdownOption("{track:02d} - {artist} - {title}", "01 - Artist - Track Title.flac"),
-                ft.DropdownOption("{artist} - {album} - {track:02d} - {title}", "Artist - Album - 01 - Track Title.flac"),
+                ft.DropdownOption("{track:02d} - {title}", "01 - Track Title"),
+                ft.DropdownOption("{artist} - {title}", "Artist - Track Title"),
+                ft.DropdownOption("{track:02d}. {artist} - {title}", "01. Artist - Track Title"),
+                ft.DropdownOption("{track:02d} - {artist} - {title}", "01 - Artist - Track Title"),
+                ft.DropdownOption("{artist} - {album} - {track:02d} - {title}", "Artist - Album - 01 - Track Title"),
             ],
             on_select=self.handle_pattern_change,
             border_radius=8,

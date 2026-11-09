@@ -41,6 +41,7 @@ class AppState:
         """
         self.current_files = files
         self.selected_file_indices.clear()
+        self.selected_cover_art_bytes = None
         self.last_selected_index = None
         logger.info(f"Loaded {len(files)} files into state.")
         self.notify()
@@ -53,6 +54,7 @@ class AppState:
             indices: An iterable of integers representing selected row indices.
         """
         self.selected_file_indices = set(indices)
+        self.selected_cover_art_bytes = None
         logger.debug(f"Updated selection. {len(self.selected_file_indices)} items selected.")
         self.notify()
         

@@ -80,13 +80,20 @@ def parse_cue_sheet(cue_path: str) -> Dict[str, Any]:
                 'title': '',
                 'artist': '',
                 'start_time': 0.0,
+                'pregap_time': None,
                 'end_time': None
             }
             tracks.append(current_track)
             continue
 
+        # Track pregap index 00
+        m_index00 = re.match(r'INDEX\s+00\s+(\d+:\d{2}:\d{2})', line, re.IGNORECASE)
+        if m_index00 and current_track is not None:
+            current_track['pregap_time'] = parse_cue_time(m_index00.group(1))
+            continue
+
         # Track start time index 01
-        m_index = re.match(r'INDEX\s+01\s+(\d{2}:\d{2}:\d{2})', line, re.IGNORECASE)
+        m_index = re.match(r'INDEX\s+01\s+(\d+:\d{2}:\d{2})', line, re.IGNORECASE)
         if m_index and current_track is not None:
             current_track['start_time'] = parse_cue_time(m_index.group(1))
             continue
@@ -96,8 +103,13 @@ def parse_cue_sheet(cue_path: str) -> Dict[str, Any]:
         if not t['artist']:
             t['artist'] = album_meta['artist']
 
-    # Calculate end times sequentially
+    # Calculate end times sequentially (stopping at next track's pregap INDEX 00 if present)
     for i in range(len(tracks) - 1):
-        tracks[i]['end_time'] = tracks[i+1]['start_time']
+        next_track = tracks[i + 1]
+        pregap = next_track.get('pregap_time')
+        if pregap is not None and pregap >= tracks[i]['start_time']:
+            tracks[i]['end_time'] = pregap
+        else:
+            tracks[i]['end_time'] = next_track['start_time']
 
     return {'metadata': album_meta, 'tracks': tracks}

@@ -56,3 +56,25 @@ def test_parse_cue_sheet_success():
     assert t3['title'] == "Rumour Has It"
     assert t3['start_time'] == 375.0
     assert t3['end_time'] is None
+
+
+def test_parse_cue_sheet_with_pregap_and_long_minutes():
+    mock_cue_data = """
+    PERFORMER "DJ Mix"
+    TITLE "Long Session"
+    FILE "mix.flac" WAVE
+      TRACK 01 AUDIO
+        TITLE "Part 1"
+        INDEX 01 00:00:00
+      TRACK 02 AUDIO
+        TITLE "Part 2"
+        INDEX 00 100:00:00
+        INDEX 01 100:02:00
+    """
+    with patch("builtins.open", mock_open(read_data=mock_cue_data)):
+        result = parse_cue_sheet("long.cue")
+
+    assert len(result['tracks']) == 2
+    assert result['tracks'][0]['end_time'] == 6000.0  # Stops at INDEX 00 pregap (100 mins)
+    assert result['tracks'][1]['start_time'] == 6002.0  # Starts at INDEX 01 (100 mins 2 secs)
+

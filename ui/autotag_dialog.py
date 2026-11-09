@@ -5,7 +5,7 @@ import os
 
 from utils.logger import logger
 from core.api_client import search_musicbrainz_releases, fetch_musicbrainz_release_tracks
-from core.metadata import save_metadata_to_flac
+from core.metadata import save_metadata
 from core.state import AppState
 from ui import theme as T
 
@@ -472,13 +472,13 @@ class AutoTagDialog:
                     meta['date'] = date_val
                 
                 try:
-                    save_metadata_to_flac(file_data['path'], meta, meta.get('cover_art'))
+                    save_metadata(file_data['path'], meta, meta.get('cover_art'))
                     saved_count += 1
                 except Exception as ex:
                     logger.error(f"Error saving auto-tagged metadata to {file_data['path']}: {ex}", exc_info=True)
 
             # Trigger complete refresh callback
             if self.on_save_complete:
-                self.page.run_task(lambda: self.on_save_complete(saved_count))
+                self.on_save_complete(saved_count)
 
         threading.Thread(target=run_save, daemon=True).start()

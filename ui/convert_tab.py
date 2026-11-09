@@ -1,38 +1,15 @@
 import flet as ft
 import os
-import sys
 import threading
-import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
 from ui import theme as T
 from core.state import AppState
 from core.transcoder import transcode_file
+from utils.dialogs import choose_directory, reveal_in_finder
 from utils.logger import logger
-
-def choose_directory(prompt: str) -> str:
-    """Opens a native directory selection dialog."""
-    if sys.platform == 'darwin':
-        try:
-            cmd = ['osascript', '-e', 'tell app "System Events" to activate', 
-                   '-e', f'tell app "System Events" to return POSIX path of (choose folder with prompt "{prompt}")']
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            if result.returncode == 0:
-                return result.stdout.strip()
-        except Exception as e:
-            logger.debug(f"macOS choose_directory failed: {e}")
-    try:
-        import tkinter as tk
-        from tkinter import filedialog
-        root = tk.Tk()
-        root.withdraw()
-        path = filedialog.askdirectory(title=prompt)
-        root.destroy()
-        return path
-    except Exception as e:
-        logger.error(f"Fallback choose_directory failed: {e}")
-        return ""
 
 
 class ConvertTab(ft.Row):
@@ -66,7 +43,9 @@ class ConvertTab(ft.Row):
             value="mp3",
             options=[
                 ft.DropdownOption("mp3", "MP3 (Compressed)"),
+                ft.DropdownOption("m4a", "M4A / AAC (Compressed)"),
                 ft.DropdownOption("ogg", "OGG Vorbis (Compressed)"),
+                ft.DropdownOption("flac", "FLAC (Lossless)"),
                 ft.DropdownOption("wav", "WAV (Uncompressed)"),
             ],
             on_select=self.handle_format_change,
@@ -108,9 +87,24 @@ class ConvertTab(ft.Row):
 
         # Log & Progress
         self.progress_bar = ft.ProgressBar(value=0, visible=False, color=T.PRIMARY, height=4)
+        self.open_output_btn = ft.OutlinedButton(
+            "Open in Finder",
+            icon=ft.Icons.OPEN_IN_NEW_ROUNDED,
+            on_click=lambda e: reveal_in_finder(self.output_dir_field.value.strip()),
+            visible=False,
+            height=26,
+            style=ft.ButtonStyle(
+                color=T.PRIMARY,
+                side=ft.BorderSide(1, T.PRIMARY),
+                shape=ft.RoundedRectangleBorder(radius=6),
+                padding=ft.Padding.symmetric(horizontal=8, vertical=2),
+                text_style=ft.TextStyle(size=10),
+            ),
+        )
         self.console_log = ft.ListView(
             spacing=4,
             expand=True,
+            auto_scroll=True,
         )
 
         console_card = ft.Container(
@@ -119,7 +113,7 @@ class ConvertTab(ft.Row):
             border=ft.Border.all(1, T.BORDER),
             border_radius=10,
             padding=10,
-            height=160,
+            expand=True,
         )
 
         self.convert_btn = T.gradient_button(
@@ -131,9 +125,10 @@ class ConvertTab(ft.Row):
         select_output_row = ft.Row(
             [
                 self.output_dir_field,
-                ft.IconButton(ft.Icons.CREATE_NEW_FOLDER_OUTLINED, on_click=self.browse_output, tooltip="Browse Output Directory")
+                ft.IconButton(ft.Icons.CREATE_NEW_FOLDER_OUTLINED, on_click=self.browse_output, tooltip="Browse Output Directory"),
+                ft.IconButton(ft.Icons.OPEN_IN_NEW_ROUNDED, on_click=lambda e: reveal_in_finder(self.output_dir_field.value.strip()), tooltip="Reveal Output Directory in Finder"),
             ],
-            spacing=6,
+            spacing=4,
         )
 
         left_column = ft.Column(
@@ -171,6 +166,7 @@ class ConvertTab(ft.Row):
                                 [
                                     ft.Text("Execution Log", size=14, weight=ft.FontWeight.BOLD, color=T.TEXT),
                                     ft.Container(expand=True),
+                                    self.open_output_btn,
                                     self.progress_bar,
                                 ],
                                 spacing=10,
@@ -270,14 +266,14 @@ class ConvertTab(ft.Row):
     def handle_format_change(self, e):
         """Updates quality options depending on the chosen target format."""
         fmt = self.format_dropdown.value
-        if fmt == "mp3":
+        if fmt in ("mp3", "m4a"):
             self.quality_dropdown.options = [
                 ft.DropdownOption("320k", "320 kbps (High Quality)"),
                 ft.DropdownOption("256k", "256 kbps"),
                 ft.DropdownOption("192k", "192 kbps (Medium Quality)"),
                 ft.DropdownOption("128k", "128 kbps (Low Quality)"),
             ]
-            self.quality_dropdown.value = "320k"
+            self.quality_dropdown.value = "320k" if fmt == "mp3" else "256k"
             self.quality_dropdown.disabled = False
         elif fmt == "ogg":
             self.quality_dropdown.options = [
@@ -287,7 +283,7 @@ class ConvertTab(ft.Row):
             ]
             self.quality_dropdown.value = "q6"
             self.quality_dropdown.disabled = False
-        elif fmt == "wav":
+        elif fmt in ("wav", "flac"):
             self.quality_dropdown.options = [
                 ft.DropdownOption("lossless", "Lossless / Original Quality")
             ]
@@ -342,7 +338,7 @@ class ConvertTab(ft.Row):
                         [
                             ft.Icon(ft.Icons.FOLDER_OPEN_ROUNDED, size=48, color=T.MUTED),
                             ft.Text("No Audio Files Loaded", size=15, weight=ft.FontWeight.BOLD, color=T.TEXT),
-                            ft.Text("Import a folder of FLAC files to start transcoding.", size=11, color=T.MUTED, text_align=ft.TextAlign.CENTER),
+                            ft.Text("Import a folder of audio files to start transcoding.", size=11, color=T.MUTED, text_align=ft.TextAlign.CENTER),
                             ft.Container(
                                 content=ft.Row(
                                     [
@@ -463,6 +459,7 @@ class ConvertTab(ft.Row):
         # Lock UI controls
         self.convert_btn.disabled = True
         self.convert_btn.content.controls[1].value = "Converting..."
+        self.open_output_btn.visible = False
         self.progress_bar.visible = True
         self.progress_bar.value = 0
         self.console_log.controls.clear()
@@ -471,35 +468,38 @@ class ConvertTab(ft.Row):
         def run():
             success_count = 0
             error_count = 0
+            completed_count = 0
             total_source_size = 0
             total_output_size = 0
+            lock = threading.Lock()
             
             self.console_log.controls.append(
                 ft.Text(f"Starting batch transcode for {len(selected_files)} file(s) to {target_format.upper()}...", color=T.PRIMARY, size=11, weight=ft.FontWeight.BOLD)
             )
             self.page_ref.update()
 
-            for i, f_data in enumerate(selected_files):
-                file_path = f_data['path']
-                filename = os.path.basename(file_path)
-                
-                def log_callback(msg: str):
-                    color = T.TEXT
-                    if "✓" in msg:
-                        color = T.SUCCESS
-                    elif "⚠️" in msg or "❌" in msg:
-                        color = ft.Colors.RED_400
-                        
+            def log_callback(msg: str):
+                color = T.TEXT
+                if "✓" in msg:
+                    color = T.SUCCESS
+                elif "⚠️" in msg or "❌" in msg:
+                    color = ft.Colors.RED_400
+                with lock:
                     self.console_log.controls.append(
                         ft.Text(msg, color=color, size=11)
                     )
                     self.page_ref.update()
 
+            def _convert_one(f_data: Dict[str, Any]):
+                nonlocal success_count, error_count, completed_count, total_source_size, total_output_size
+                file_path = f_data['path']
+                filename = os.path.basename(file_path)
+
                 try:
-                    # Get metadata tags & cover art
+                    # Get metadata tags & cover art (fallback to selected_cover_art_bytes if None)
                     metadata = f_data.get('metadata', {})
-                    cover_art = metadata.get('cover_art', self.app_state.selected_cover_art_bytes)
-                    
+                    cover_art = metadata.get('cover_art') or self.app_state.selected_cover_art_bytes
+
                     out_path = transcode_file(
                         input_path=file_path,
                         output_dir=output_dir,
@@ -509,20 +509,31 @@ class ConvertTab(ft.Row):
                         cover_art=cover_art,
                         progress_callback=log_callback
                     )
-                    success_count += 1
+                    src_sz = 0
+                    out_sz = 0
                     try:
-                        total_source_size += os.path.getsize(file_path)
-                        total_output_size += os.path.getsize(out_path)
+                        src_sz = os.path.getsize(file_path)
+                        out_sz = os.path.getsize(out_path)
                     except Exception:
                         pass
+                    with lock:
+                        success_count += 1
+                        total_source_size += src_sz
+                        total_output_size += out_sz
                 except Exception as ex:
                     logger.error(f"Error transcoding {filename}: {ex}", exc_info=True)
                     log_callback(f"❌ Error converting {filename}: {ex}")
-                    error_count += 1
-                    
-                # Update progress bar
-                self.progress_bar.value = (i + 1) / len(selected_files)
-                self.page_ref.update()
+                    with lock:
+                        error_count += 1
+                finally:
+                    with lock:
+                        completed_count += 1
+                        self.progress_bar.value = completed_count / len(selected_files)
+                        self.page_ref.update()
+
+            max_workers = min(len(selected_files) or 1, os.cpu_count() or 4)
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                list(executor.map(_convert_one, selected_files))
 
             # End State
             self.console_log.controls.append(
@@ -561,6 +572,7 @@ class ConvertTab(ft.Row):
             self.convert_btn.disabled = False
             self.convert_btn.content.controls[1].value = "Start Batch Transcode"
             self.progress_bar.visible = False
+            self.open_output_btn.visible = success_count > 0
             self.page_ref.update()
 
         threading.Thread(target=run, daemon=True).start()

@@ -1,8 +1,6 @@
 import flet as ft
 import os
-import sys
 import threading
-import subprocess
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 
@@ -10,62 +8,22 @@ from ui import theme as T
 from core.state import AppState
 from core.cue_parser import parse_cue_sheet
 from core.cue_splitter_logic import split_cue_audio
+from core.metadata import SUPPORTED_AUDIO_EXTENSIONS
+from utils.dialogs import choose_directory, choose_file as _choose_file_dialog, reveal_in_finder
 from utils.logger import logger
 
 
 def choose_file(prompt: str, file_type: str = None) -> str:
     """Opens a native file selection dialog."""
-    if sys.platform == 'darwin':
-        try:
-            type_str = f' of type {{"{file_type}"}}' if file_type else ''
-            cmd = ['osascript', '-e', 'tell app "System Events" to activate', 
-                   '-e', f'tell app "System Events" to return POSIX path of (choose file with prompt "{prompt}"{type_str})']
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            if result.returncode == 0:
-                return result.stdout.strip()
-        except Exception as e:
-            logger.debug(f"macOS choose_file failed: {e}")
-    try:
-        import tkinter as tk
-        from tkinter import filedialog
-        root = tk.Tk()
-        root.withdraw()
-        type_tuples = [(f"{file_type.upper()} Files", f"*.{file_type}")] if file_type else [("All Files", "*.*")]
-        path = filedialog.askopenfilename(title=prompt, filetypes=type_tuples)
-        root.destroy()
-        return path
-    except Exception as e:
-        logger.error(f"Fallback choose_file failed: {e}")
-        return ""
-
-
-def choose_directory(prompt: str) -> str:
-    """Opens a native directory selection dialog."""
-    if sys.platform == 'darwin':
-        try:
-            cmd = ['osascript', '-e', 'tell app "System Events" to activate', 
-                   '-e', f'tell app "System Events" to return POSIX path of (choose folder with prompt "{prompt}")']
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            if result.returncode == 0:
-                return result.stdout.strip()
-        except Exception as e:
-            logger.debug(f"macOS choose_directory failed: {e}")
-    try:
-        import tkinter as tk
-        from tkinter import filedialog
-        root = tk.Tk()
-        root.withdraw()
-        path = filedialog.askdirectory(title=prompt)
-        root.destroy()
-        return path
-    except Exception as e:
-        logger.error(f"Fallback choose_directory failed: {e}")
-        return ""
+    if file_type == "audio":
+        exts = [ext.lstrip(".") for ext in sorted(SUPPORTED_AUDIO_EXTENSIONS)]
+        return _choose_file_dialog(prompt, extensions=exts)
+    return _choose_file_dialog(prompt, extensions=[file_type] if file_type else None)
 
 
 class CueSplitterTab(ft.Row):
     """
-    UI Tab Component for splitting a continuous FLAC file using a CUE sheet.
+    UI Tab Component for splitting a continuous audio file using a CUE sheet.
     """
 
     def __init__(self, page: ft.Page, app_state: AppState, set_status: Any):
@@ -80,7 +38,7 @@ class CueSplitterTab(ft.Row):
 
         # ── Left Column Elements (Inputs & Settings) ───────────────────────────
         self.cue_path_field = T.styled_field("CUE Sheet Path", read_only=True, expand=True)
-        self.flac_path_field = T.styled_field("Audio FLAC Path", read_only=True, expand=True)
+        self.flac_path_field = T.styled_field("Continuous Audio Path", read_only=True, expand=True)
         self.output_dir_field = T.styled_field("Output Directory", read_only=True, expand=True)
 
         self.naming_pattern_field = ft.Dropdown(
@@ -92,11 +50,11 @@ class CueSplitterTab(ft.Row):
             focused_border_color=T.SECONDARY,
             value="{track:02d} - {title}",  # Default naming scheme
             options=[
-                ft.DropdownOption("{track:02d} - {title}", "01 - Track Title.flac"),
-                ft.DropdownOption("{artist} - {title}", "Artist - Track Title.flac"),
-                ft.DropdownOption("{track:02d}. {artist} - {title}", "01. Artist - Track Title.flac"),
-                ft.DropdownOption("{track:02d} - {artist} - {title}", "01 - Artist - Track Title.flac"),
-                ft.DropdownOption("{artist} - {album} - {track:02d} - {title}", "Artist - Album - 01 - Track Title.flac"),
+                ft.DropdownOption("{track:02d} - {title}", "01 - Track Title"),
+                ft.DropdownOption("{artist} - {title}", "Artist - Track Title"),
+                ft.DropdownOption("{track:02d}. {artist} - {title}", "01. Artist - Track Title"),
+                ft.DropdownOption("{track:02d} - {artist} - {title}", "01 - Artist - Track Title"),
+                ft.DropdownOption("{artist} - {album} - {track:02d} - {title}", "Artist - Album - 01 - Track Title"),
             ],
             border_radius=6,
             height=38,
@@ -120,7 +78,10 @@ class CueSplitterTab(ft.Row):
             value="flac",
             options=[
                 ft.DropdownOption("flac", "FLAC (Lossless)"),
-                ft.DropdownOption("ogg", "OGG Vorbis (Compressed)"),
+                ft.DropdownOption("mp3", "MP3 (320 kbps)"),
+                ft.DropdownOption("m4a", "M4A / AAC (256 kbps)"),
+                ft.DropdownOption("ogg", "OGG Vorbis (q6)"),
+                ft.DropdownOption("wav", "WAV (Uncompressed)"),
             ],
             border_radius=6,
             height=38,
@@ -131,9 +92,24 @@ class CueSplitterTab(ft.Row):
 
         # Progress elements
         self.progress_bar = ft.ProgressBar(value=0, visible=False, color=T.PRIMARY, height=4)
+        self.open_output_btn = ft.OutlinedButton(
+            "Open in Finder",
+            icon=ft.Icons.OPEN_IN_NEW_ROUNDED,
+            on_click=lambda e: reveal_in_finder(self.output_dir_field.value.strip()),
+            visible=False,
+            height=26,
+            style=ft.ButtonStyle(
+                color=T.PRIMARY,
+                side=ft.BorderSide(1, T.PRIMARY),
+                shape=ft.RoundedRectangleBorder(radius=6),
+                padding=ft.Padding.symmetric(horizontal=8, vertical=2),
+                text_style=ft.TextStyle(size=10),
+            ),
+        )
         self.console_log = ft.ListView(
             spacing=4,
             expand=True,
+            auto_scroll=True,
         )
 
         console_card = ft.Container(
@@ -142,7 +118,7 @@ class CueSplitterTab(ft.Row):
             border=ft.Border.all(1, T.BORDER),
             border_radius=10,
             padding=10,
-            height=130,
+            expand=True,
         )
 
         self.split_btn = T.gradient_button(
@@ -163,7 +139,7 @@ class CueSplitterTab(ft.Row):
         select_flac_row = ft.Row(
             [
                 self.flac_path_field,
-                ft.IconButton(ft.Icons.AUDIO_FILE_OUTLINED, on_click=self.browse_flac, tooltip="Browse Audio FLAC")
+                ft.IconButton(ft.Icons.AUDIO_FILE_OUTLINED, on_click=self.browse_flac, tooltip="Browse Continuous Audio File")
             ],
             spacing=6,
         )
@@ -171,9 +147,10 @@ class CueSplitterTab(ft.Row):
         select_output_row = ft.Row(
             [
                 self.output_dir_field,
-                ft.IconButton(ft.Icons.CREATE_NEW_FOLDER_OUTLINED, on_click=self.browse_output, tooltip="Browse Output Directory")
+                ft.IconButton(ft.Icons.CREATE_NEW_FOLDER_OUTLINED, on_click=self.browse_output, tooltip="Browse Output Directory"),
+                ft.IconButton(ft.Icons.OPEN_IN_NEW_ROUNDED, on_click=lambda e: reveal_in_finder(self.output_dir_field.value.strip()), tooltip="Reveal Output Directory in Finder"),
             ],
-            spacing=6,
+            spacing=4,
         )
 
         left_column = ft.Column(
@@ -221,6 +198,7 @@ class CueSplitterTab(ft.Row):
                                 [
                                     ft.Text("Execution Log", size=14, weight=ft.FontWeight.BOLD, color=T.TEXT),
                                     ft.Container(expand=True),
+                                    self.open_output_btn,
                                     self.progress_bar,
                                 ],
                                 spacing=10,
@@ -331,20 +309,26 @@ class CueSplitterTab(ft.Row):
             self.override_album_field.value = meta['title'] or ""
             self.override_year_field.value = meta['date'] or ""
             
-            # Auto-detection of associated FLAC file
+            # Auto-detection of associated continuous audio file
             cue_dir = os.path.dirname(path)
-            default_flac_filename = meta['file'] or os.path.basename(path).replace(".cue", ".flac")
-            detected_flac_path = os.path.join(cue_dir, default_flac_filename)
+            default_audio_filename = meta['file'] or os.path.basename(path).replace(".cue", ".flac")
+            detected_audio_path = os.path.join(cue_dir, default_audio_filename)
             
-            if os.path.exists(detected_flac_path):
-                self.flac_path_field.value = detected_flac_path
-                self.console_log.controls.append(ft.Text("✓ Automatically matched continuous FLAC audio file.", color=T.SUCCESS, size=11))
+            if os.path.exists(detected_audio_path):
+                self.flac_path_field.value = detected_audio_path
+                self.console_log.controls.append(ft.Text("✓ Automatically matched continuous audio file.", color=T.SUCCESS, size=11))
             else:
-                # Try simple directory glob search for any FLAC as fallback
-                flacs = list(Path(cue_dir).glob("*.flac"))
-                if len(flacs) == 1:
-                    self.flac_path_field.value = str(flacs[0])
-                    self.console_log.controls.append(ft.Text(f"✓ Automatically detected FLAC: {flacs[0].name}", color=T.SUCCESS, size=11))
+                # Fallback: check for same stem with any supported audio extension, or single audio file in folder
+                cue_stem = Path(path).stem
+                candidates = [
+                    f for f in Path(cue_dir).iterdir()
+                    if f.is_file() and f.suffix.lower() in SUPPORTED_AUDIO_EXTENSIONS
+                ]
+                stem_matches = [f for f in candidates if f.stem.lower() == cue_stem.lower()]
+                chosen = stem_matches[0] if stem_matches else (candidates[0] if len(candidates) == 1 else None)
+                if chosen:
+                    self.flac_path_field.value = str(chosen)
+                    self.console_log.controls.append(ft.Text(f"✓ Automatically detected audio: {chosen.name}", color=T.SUCCESS, size=11))
             
             # Auto-set output directory
             self.output_dir_field.value = os.path.join(cue_dir, "Split Tracks")
@@ -360,8 +344,8 @@ class CueSplitterTab(ft.Row):
         self.page_ref.update()
 
     def browse_flac(self, e):
-        """Browse handler for FLAC audio."""
-        path = choose_file("Select continuous FLAC File", "flac")
+        """Browse handler for continuous audio file."""
+        path = choose_file("Select Continuous Audio File", "audio")
         if path:
             self.flac_path_field.value = path
             self.page_ref.update()
@@ -487,6 +471,7 @@ class CueSplitterTab(ft.Row):
         # UI locks
         self.split_btn.disabled = True
         self.split_btn.content.controls[1].value = "Splitting tracks…"
+        self.open_output_btn.visible = False
         self.progress_bar.visible = True
         self.progress_bar.value = 0
         self.console_log.controls.clear()
@@ -513,6 +498,7 @@ class CueSplitterTab(ft.Row):
                 self.console_log.controls.append(
                     ft.Text("✓ Slicing process finished.", color=T.SUCCESS, size=11, weight=ft.FontWeight.BOLD)
                 )
+                self.open_output_btn.visible = True
                 self.set_status("✓ CUE Split successfully completed!")
             except Exception as ex:
                 logger.error(f"Error splitting CUE: {ex}", exc_info=True)

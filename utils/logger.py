@@ -1,9 +1,8 @@
 import logging
 import sys
-from pathlib import Path
+from utils.paths import LOG_FILE
 
-# Resolve project root (this file lives at <root>/utils/logger.py)
-_LOG_FILE = Path(__file__).parent.parent / "sonicforge.log"
+_LOG_FILE = LOG_FILE
 
 def setup_logger(name: str = "sonicforge") -> logging.Logger:
     """Configures and returns the main application logger."""

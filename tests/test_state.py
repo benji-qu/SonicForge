@@ -20,10 +20,13 @@ def test_app_state_load_files():
 
 def test_app_state_set_selection():
     state = AppState()
+    state.set_cover_art(b"sample_cover")
+    assert state.selected_cover_art_bytes == b"sample_cover"
     state.set_selection([0, 1])
     assert 0 in state.selected_file_indices
     assert 1 in state.selected_file_indices
     assert len(state.selected_file_indices) == 2
+    assert state.selected_cover_art_bytes is None
 
 def test_app_state_listener_notification():
     state = AppState()

@@ -1,22 +1,24 @@
 # SonicForge
 
-![Screenshot of SonicForge UI](assets/image_tag_editor.png)
+![Screenshot of SonicForge UI 1](assets/image_tag_editor.png)
 
 
-A batch audio tag editor for FLAC files, built with Python and Flet.
+A fast, zero-dependency batch audio tag editor, CUE splitter, and audio transcoder for macOS, built with Python and Flet.
 
 ## Features
 
+- 🎵 **Multi-Format Audio & Tag Support**: Read and write metadata and cover art across **FLAC**, **MP3** (ID3v2.3), **M4A / MP4 / AAC** (`covr`/`trkn`/`©nam`), **OGG Vorbis**, **Opus**, **WAV**, **AIFF**, **WavPack**, **APE**, and **WMA**.
 - 📁 **Instant Parallel Loading**: Loads large music directories virtually instantaneously using concurrent thread pooling.
-- ✏️ **Dual-Selection Modes**: Native range multi-selection (`Shift+Click`) alongside standard single-clicking for rapid editing.
-- 🌐 **MusicBrainz Auto-Tagging**: Connects to the public MusicBrainz database to fetch complete, standardised album tag metadata, with a visual release card list and a dynamic, side-by-side track mapping preview with count mismatch warnings.
-- 🖼️ **Unified Artwork Search**: Search and fetch high-resolution front covers online from iTunes and Deezer concurrently, or select from local files.
-- 🔢 **Auto-Number Tracks**: Sorts and sequentially indexes chosen files automatically (`01`, `02`, `03`...).
-- 🏷️ **Batch File Renaming**: Dynamically rename filenames based on custom tag patterns (e.g. `{track:02d} - {title}`) with robust character sanitisation and a live Before → After preview dialog.
-- ✂️ **Lossless CUE Splitter**: Slices a single large album-length FLAC file into individual tracks natively and losslessly using a CUE sheet and FFmpeg, complete with automatic metadata tag injection and selective track check-boxes.
-- 🔄 **Audio Transcoder**: Batch transcode audio files natively and asynchronously using FFmpeg. Supports encoding to high-quality **MP3** (with selectable bitrates), **OGG Vorbis** (with quality levels), and uncompressed **WAV** format, preserving all original tags, embedded artwork, and folder structures.
-- 📊 **Space-Saving Metrics**: Provides real-time, side-by-side size difference reports for each file during transcoding and displays an aggregate space-saving summary (total MB and % reduction) upon completion.
-- 💾 **Safe Local Write-back**: Validates and saves tags directly to the original FLAC files losslessly.
+- 🔍 **Sortable & Filterable Track Table**: Sort by File Name, Format, Artist, Title, Album, Track #, or Year, filter tracks in real time, and reveal folders directly in Finder.
+- ✏️ **Smart Multi-Selection & Batch Editing**: Native range (`Shift+Click`) and toggle (`⌘+Click`) selection, `< Multiple values — leave blank to keep >` hints, live selection & unsaved-change badges, cover art resolution info, and keyboard shortcuts (`⌘O`, `⌘S`, `⌘R`, `⌘A`, `⌘1–3`).
+- 🌐 **MusicBrainz Auto-Tagging**: Connects to the MusicBrainz database to fetch standardized album metadata with side-by-side track mapping previews and count mismatch warnings.
+- 🖼️ **Unified Artwork Search**: Search and fetch high-resolution front covers online from iTunes and Deezer concurrently, or select from local files with in-memory previewing.
+- 🔢 **Auto-Number Tracks**: Sequentially indexes selected tracks (`01`, `02`, `03`...) in a background thread.
+- 🏷️ **Batch File Renaming**: Dynamically rename files based on custom tag patterns (e.g. `{track:02d} - {title}`) with character sanitisation and a live Before → After preview dialog.
+- ✂️ **Multi-Format CUE Splitter**: Slices continuous album audio files into individual tracks in parallel using a CUE sheet and bundled FFmpeg, outputting to **FLAC**, **MP3 (320 kbps)**, **M4A / AAC (256 kbps)**, **OGG Vorbis (q6)**, or **WAV** with automatic tag and cover art injection.
+- 🔄 **Parallel Batch Audio Transcoder**: Batch transcode audio files concurrently across CPU cores to **MP3**, **M4A (AAC)**, **OGG Vorbis**, **FLAC**, and **WAV**, preserving all tags and embedded cover art.
+- 📊 **Space-Saving Metrics**: Real-time size comparison and aggregate space-saving summary upon completion.
+- 📦 **Zero External Dependencies (`.app`)**: Self-contained macOS `.app` bundle with `ffmpeg` and all dynamic libraries bundled inside `Contents/Frameworks/`.
 
 ## Project Structure
 
